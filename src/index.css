@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base global de la paleta clara: fondo gris clarito con texto marrón oscuro,
+   para evitar el destello blanco del navegador antes de que cargue Tailwind. */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-fondo text-ink;
+  }
+}
