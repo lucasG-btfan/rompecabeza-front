@@ -22,6 +22,8 @@ export interface PalabraInput {
 export interface Palabra {
   id: string;
   palabra: string;
+  /** Versión presentable con separadores ("CO-AUTOR"); `palabra` es la versión de grilla ("COAUTOR"). */
+  texto_mostrar?: string | null;
   explicacion?: string | null;
   /** Solo se revela si `encontrada` es true; si no, es null (anti-cheat del backend). */
   posicion?: Posicion | null;
@@ -76,6 +78,7 @@ export interface ResumenPartida {
 export interface EstadoPalabra {
   id: string;
   palabra: string;
+  texto_mostrar?: string | null;
   encontrada: boolean;
   posicion?: Posicion | null;
 }

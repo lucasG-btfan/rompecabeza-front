@@ -17,10 +17,7 @@ interface SopaGameProps {
   /** Si el jugador no tiene cuenta (invitado): su progreso va por localStorage,
    * no por el backend (que no persiste nada para invitados). */
   esInvitado?: boolean;
-  /** Se dispara cuando una palabra se marca encontrada (para actualizar la screen). */
   onPalabraEncontrada?: (palabraId: string) => void;
-  /** Informa el progreso REAL del jugador (encontradas, total), combinando back
-   * y localStorage del invitado, para que la pantalla madre muestre el contador. */
   onProgreso?: (encontradas: number, total: number) => void;
 }
 
@@ -59,25 +56,6 @@ function guardarProgresoLocal(codigo: string, hallazgos: HallazgoLocal[]) {
   }
 }
 
-/**
- * Juego de Sopa de Letras.
- *
- * El progreso es POR JUGADOR:
- * - Jugador registrado: el backend le devuelve SOLO las palabras que esa cuenta
- *   encontró (progreso propio).
- * - Invitado: el backend no persiste nada, así que su progreso vive en
- *   localStorage y se combina con el estado para resaltar sus hallazgos.
- *
- * FORMAS DE SELECCIONAR:
- * - Arrastrando el mouse/dedo, o
- * - click en inicio + click en fin (modo click→click).
- *
- * El arrastre se maneja a nivel del CONTENEDOR de la grilla (no por celda):
- * el pointerdown captura el puntero en el contenedor y, en cada pointermove,
- * se calcula la celda bajo el cursor con `elementFromPoint`. Esto evita los
- * problemas de drag nativo de los <button> individuales (el implicit pointer
- * capture de touch-action: none rompía el pointerenter por celda).
- */
 export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontrada, onProgreso }: SopaGameProps) {
   const grilla = estado.grilla ?? [];
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
@@ -86,6 +64,16 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
   // Ref del contenedor donde capturamos el puntero durante el arrastre.
   const contenedorRef = useRef<HTMLDivElement | null>(null);
   const arrastrando = useRef(false);
+  // Umbral en px: por debajo de este movimiento, el pointerup se trata como
+  // click quieto (no drag). Absorbe el micro-jitter del mouse al hacer click.
+  const DRAG_THRESHOLD = 6;
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+  const hizoDrag = useRef(false);
+  // Espejo sincrónico de la selección para validar en pointerup. El último
+  // pointermove puede no haber commiteado en React cuando llega el pointerup
+  // (mismo frame), y el closure de `seleccion` quedaría desactualizado.
+  const inicioRef = useRef<Celda | null>(null);
+  const finRef = useRef<Celda | null>(null);
 
   // Progreso del invitado (solo se usa si esInvitado).
   const [progresoLocal, setProgresoLocal] = useState<HallazgoLocal[]>(() =>
@@ -139,18 +127,57 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
         ? [seleccion.inicio]
         : [];
 
-  /** Lee la celda bajo el cursor en coordenadas de la grilla, o null si el
-   * puntero está fuera del tablero. Usa elementFromPoint para no saltar celdas
-   * aunque el mouse se mueva rápido. */
+
+  /**
+   * Determina qué celda de la grilla está bajo las coordenadas del viewport,
+   * usando pura geometría (sin elementFromPoint, sin data-* attributes).
+   *
+   * La grilla usa CSS Grid con celdas de tamaño fijo (h-9/w-9 o sm:h-11/sm:w-11)
+   * y gap uniforme (gap-1 = 4px). Con el rect del grid y el tamaño de la
+   * primera celda, podemos mapear cualquier coordenada del viewport a una celda.
+   */
   function celdaBajoCursor(clientX: number, clientY: number): Celda | null {
-    const el = document.elementFromPoint(clientX, clientY);
-    const celdaEl = el?.closest("[data-fila]") as HTMLElement | null;
-    if (!celdaEl) return null;
-    const fila = Number(celdaEl.dataset.fila);
-    const columna = Number(celdaEl.dataset.col);
-    if (Number.isNaN(fila) || Number.isNaN(columna)) return null;
-    if (fila >= grilla.length || columna >= (grilla[0]?.length ?? 0)) return null;
-    return { fila, columna };
+    const grid = contenedorRef.current?.querySelector('[role="grid"]');
+    if (!grid) return null;
+
+    const numFilas = grilla.length;
+    const numColumnas = grilla[0]?.length ?? 0;
+    if (numFilas === 0 || numColumnas === 0) return null;
+
+    const gridRect = grid.getBoundingClientRect();
+
+    // Tamaño de la primera celda real (respeta responsive: 36px mobile, 44px sm+)
+    const primerCelda = grid.querySelector('[role="gridcell"]') as HTMLElement | null;
+    if (!primerCelda) return null;
+    const cellRect = primerCelda.getBoundingClientRect();
+    const cellW = cellRect.width;
+    const cellH = cellRect.height;
+
+    // Gap real calculado del grid (funciona para cualquier valor de gap)
+    const totalGapsX = gridRect.width - cellW * numColumnas;
+    const gapX = numColumnas > 1 ? totalGapsX / (numColumnas - 1) : 0;
+    const totalGapsY = gridRect.height - cellH * numFilas;
+    const gapY = numFilas > 1 ? totalGapsY / (numFilas - 1) : 0;
+
+    // Coordenadas relativas al inicio del grid
+    const x = clientX - gridRect.left;
+    const y = clientY - gridRect.top;
+
+    // Celda bajo el cursor: cada celda ocupa cellW + gapX de espacio.
+    const stepX = cellW + gapX;
+    const stepY = cellH + gapY;
+    const col = Math.floor(x / stepX);
+    const fila = Math.floor(y / stepY);
+
+    // Verificar que estamos dentro de una celda (no en el gap entre celdas)
+    const offsetX = x - col * stepX;
+    const offsetY = y - fila * stepY;
+    if (offsetX > cellW || offsetY > cellH) return null;
+
+    // Verificar límites de la grilla
+    if (fila < 0 || fila >= numFilas || col < 0 || col >= numColumnas) return null;
+
+    return { fila, columna: col };
   }
 
   async function validar(inicio: Celda, fin: Celda) {
@@ -202,25 +229,44 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
     if (!celda) return;
 
     // Ya hay una selección abierta (inicio sin fin): es el 2º click del modo
-    // click→click. Cerramos seleccionando la celda actual y validamos.
+    // click→click. Validamos inicio→celda actual y cerramos.
     if (seleccion && seleccion.fin === null) {
       validar(seleccion.inicio, celda);
       return;
     }
 
-    // Empieza una nueva selección. Capturamos el puntero EN EL CONTENEDOR para
-    // recibir todos los pointermove/up aunque el cursor salga del tablero.
+    // Nueva selección. Capturamos el puntero EN EL CONTENEDOR para seguir
+    // recibiendo pointermove/up aunque el cursor salga del tablero.
     arrastrando.current = true;
+    hizoDrag.current = false;
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+    inicioRef.current = celda;
+    finRef.current = null;
     contenedorRef.current?.setPointerCapture(e.pointerId);
     setSeleccion({ inicio: celda, fin: null });
   }
 
   function manejarPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!arrastrando.current || enviando) return;
+
+    // Ignoramos el micro-jitter del click: hasta que el cursor no se mueva más
+    // de DRAG_THRESHOLD px desde el pointerdown, esto NO es un drag.
+    if (pointerDownPos.current) {
+      const dx = e.clientX - pointerDownPos.current.x;
+      const dy = e.clientY - pointerDownPos.current.y;
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      pointerDownPos.current = null; // umbral superado: ya no volvemos a chequear
+    }
+
     const celda = celdaBajoCursor(e.clientX, e.clientY);
     if (!celda) return;
+
+    hizoDrag.current = true;
+    finRef.current = celda;
+    // El fin se actualiza SIEMPRE: la selección sigue al cursor en vivo,
+    // horizontal, vertical o diagonal (obtenerCeldasLineales ya las soporta).
     setSeleccion((sel) => {
-      if (!sel || sel.fin !== null) return sel;
+      if (!sel) return sel;
       return { inicio: sel.inicio, fin: celda };
     });
   }
@@ -233,13 +279,22 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
     } catch {
       // releasePointerCapture puede fallar si la captura ya se liberó sola.
     }
-    // Si arrastramos hasta una celda final, cerramos y validamos.
-    if (seleccion && seleccion.fin) {
-      validar(seleccion.inicio, seleccion.fin);
-      setSeleccion(null);
+
+    // ¿Hubo un drag real? Validamos con las refs (sincrónicas, inmunes a
+    // renders pendientes).
+    if (hizoDrag.current && inicioRef.current && finRef.current) {
+      const inicio = inicioRef.current;
+      const fin = finRef.current;
+      inicioRef.current = null;
+      finRef.current = null;
+      hizoDrag.current = false;
+      validar(inicio, fin);
+      return;
     }
-    // Si fin quedó null (click simple sin arrastre), la selección queda abierta
-    // esperando el 2º click, que se resolverá en el próximo pointerdown.
+
+    // Click quieto (movimiento < umbral): NO tocamos la selección. Queda
+    // abierta con fin = null esperando el 2º click del modo click→click.
+    hizoDrag.current = false;
   }
 
   function estadoCelda(f: number, c: number): EstadoCelda {
@@ -294,7 +349,7 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
                 : "border border-line/30 text-ink-soft"
             }`}
           >
-            {p.palabra}
+            {p.texto_mostrar ?? p.palabra}
           </span>
         ))}
       </div>

@@ -21,7 +21,7 @@ export function Dashboard() {
 
     const palabras = palabrasTexto
       .split(/[,\n]/)
-      .map((p) => p.trim().toUpperCase().replace(/\s+/g, ""))
+      .map((p) => p.trim())
       .filter(Boolean);
 
     if (palabras.length === 0) {

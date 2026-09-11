@@ -33,9 +33,10 @@ export function EditarPartida() {
 
   async function agregarPalabra(e: FormEvent) {
     e.preventDefault();
-    // Quitamos espacios internos y pasamos a mayúsculas: en la sopa la palabra
-    // no lleva espacio ("sr frio" se guarda y juega como "SRFRIO").
-    const palabra = nuevaPalabra.toUpperCase().replace(/\s+/g, "");
+    // Mandamos la palabra COMO LA ESCRIBIÓ el usuario (con espacios/guiones si
+    // los tiene): el backend genera la versión de grilla (palabra) y la legible
+    // (texto_mostrar) a partir de este texto original.
+    const palabra = nuevaPalabra.trim();
     if (!palabra) return;
     setCargandoAccion(true);
     try {
@@ -96,7 +97,7 @@ export function EditarPartida() {
   }
 
   async function guardarEdicion(palabraId: string) {
-    const palabra = editandoTexto.toUpperCase().replace(/\s+/g, "");
+    const palabra = editandoTexto.trim();
     if (!palabra) return;
     setCargandoAccion(true);
     setError(null);
@@ -170,7 +171,7 @@ export function EditarPartida() {
               id="palabra-nueva"
               value={nuevaPalabra}
               onChange={(e) => setNuevaPalabra(e.target.value)}
-              placeholder="Ej: HELADO"
+              placeholder="Ej: CO-AUTOR"
               className="flex-1 rounded-md border-2 border-ink/10 bg-tile-light px-3 py-2 uppercase text-ink placeholder:normal-case placeholder:text-ink-soft/50 outline-none focus:border-amber"
             />
             <button
@@ -181,6 +182,10 @@ export function EditarPartida() {
               Agregar
             </button>
           </div>
+          <p className="text-xs text-ink-soft/80">
+            Los espacios y guiones no entran a la grilla ("co-autor" se juega como{" "}
+            <strong>COAUTOR</strong>), pero la lista los muestra tal cual los escribiste.
+          </p>
         </form>
       )}
 
@@ -224,7 +229,7 @@ export function EditarPartida() {
                 </div>
               ) : (
                 <>
-                  <span className="font-medium text-ink">{p.palabra}</span>
+                  <span className="font-medium text-ink">{p.texto_mostrar ?? p.palabra}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-ink-soft">
                       {p.encontrada ? "encontrada" : p.posicion ? "posicionada" : "sin posición"}
@@ -234,7 +239,7 @@ export function EditarPartida() {
                         <button
                           onClick={() => {
                             setEditandoId(p.id);
-                            setEditandoTexto(p.palabra);
+                            setEditandoTexto(p.texto_mostrar ?? p.palabra);
                           }}
                           disabled={cargandoAccion}
                           className="text-xs font-medium text-ink hover:underline disabled:opacity-60"
