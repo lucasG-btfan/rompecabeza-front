@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { partidasApi } from "../api/partidas";
 import type { Partida } from "../types";
+import { EditorCrucigrama } from "../juego/crucigrama/editor/EditorCrucigrama";
 
 export function EditarPartida() {
   const { codigo = "" } = useParams();
@@ -10,8 +11,10 @@ export function EditarPartida() {
   const [partida, setPartida] = useState<Partida | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nuevaPalabra, setNuevaPalabra] = useState("");
+  const [nuevaPista, setNuevaPista] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editandoTexto, setEditandoTexto] = useState("");
+  const [editandoPista, setEditandoPista] = useState("");
   const [cargando, setCargando] = useState(true);
   const [cargandoAccion, setCargandoAccion] = useState(false);
 
@@ -38,15 +41,20 @@ export function EditarPartida() {
     // (texto_mostrar) a partir de este texto original.
     const palabra = nuevaPalabra.trim();
     if (!palabra) return;
+    const pista = nuevaPista.trim();
     setCargandoAccion(true);
     try {
-      const nuevas = await partidasApi.agregarPalabras(codigo, [{ palabra }]);
+      const nuevas = await partidasApi.agregarPalabras(
+        codigo,
+        pista ? [{ palabra, explicacion: pista }] : [{ palabra }],
+      );
       setPartida((prev) =>
         prev
           ? { ...prev, palabras: [...prev.palabras, ...nuevas] }
           : prev,
       );
       setNuevaPalabra("");
+      setNuevaPista("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo agregar la palabra.");
     } finally {
@@ -99,10 +107,17 @@ export function EditarPartida() {
   async function guardarEdicion(palabraId: string) {
     const palabra = editandoTexto.trim();
     if (!palabra) return;
+    const pista = editandoPista.trim();
     setCargandoAccion(true);
     setError(null);
     try {
-      const actualizada = await partidasApi.editarPalabra(codigo, palabraId, { palabra });
+      // Sin pista se manda { palabra }: el backend setea explicacion=None y la
+      // quita (dejar el campo vacío al editar = borrar la pista).
+      const actualizada = await partidasApi.editarPalabra(
+        codigo,
+        palabraId,
+        pista ? { palabra, explicacion: pista } : { palabra },
+      );
       setPartida((prev) =>
         prev
           ? { ...prev, palabras: prev.palabras.map((p) => (p.id === palabraId ? actualizada : p)) }
@@ -110,6 +125,7 @@ export function EditarPartida() {
       );
       setEditandoId(null);
       setEditandoTexto("");
+      setEditandoPista("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo editar la palabra.");
     } finally {
@@ -133,6 +149,21 @@ export function EditarPartida() {
   }
 
   const yaFinalizada = partida.estado !== "creando";
+
+  const cajaActiva = (
+    <div className="flex flex-col gap-3 rounded-lg border border-line bg-tile p-5 text-ink">
+      <p className="text-sm text-ink-soft">
+        Esta partida ya está <strong>activa</strong> y lista para jugar. Compartí el
+        código.
+      </p>
+      <Link
+        to={`/jugar/${partida.codigo}`}
+        className="inline-block w-fit rounded-md bg-amber px-4 py-2.5 font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
+      >
+        Ir a jugar
+      </Link>
+    </div>
+  );
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -182,6 +213,15 @@ export function EditarPartida() {
               Agregar
             </button>
           </div>
+          {partida.tipo === "crucigrama" && (
+            <input
+              aria-label="Pista de la palabra nueva"
+              value={nuevaPista}
+              onChange={(e) => setNuevaPista(e.target.value)}
+              placeholder="Pista: la definición que verá el jugador (obligatoria para finalizar)"
+              className="rounded-md border-2 border-ink/10 bg-tile-light px-3 py-2 text-ink placeholder:text-ink-soft/50 outline-none focus:border-amber"
+            />
+          )}
           <p className="text-xs text-ink-soft/80">
             Los espacios y guiones no entran a la grilla ("co-autor" se juega como{" "}
             <strong>COAUTOR</strong>), pero la lista los muestra tal cual los escribiste.
@@ -203,33 +243,50 @@ export function EditarPartida() {
               }`}
             >
               {editandoId === p.id ? (
-                <div className="flex flex-1 items-center gap-2">
+                <div className="flex flex-1 flex-col gap-2">
                   <input
                     value={editandoTexto}
                     onChange={(e) => setEditandoTexto(e.target.value)}
                     autoFocus
-                    className="flex-1 rounded-md border-2 border-ink/10 bg-tile-light px-2 py-1 uppercase text-ink outline-none focus:border-amber"
+                    className="w-full rounded-md border-2 border-ink/10 bg-tile-light px-2 py-1 uppercase text-ink outline-none focus:border-amber"
                   />
-                  <button
-                    onClick={() => guardarEdicion(p.id)}
-                    disabled={cargandoAccion}
-                    className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-tile-light disabled:opacity-60"
-                  >
-                    Guardar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditandoId(null);
-                      setEditandoTexto("");
-                    }}
-                    className="text-xs font-medium text-ink-soft hover:underline"
-                  >
-                    Cancelar
-                  </button>
+                  {partida.tipo === "crucigrama" && (
+                    <input
+                      aria-label="Pista"
+                      value={editandoPista}
+                      onChange={(e) => setEditandoPista(e.target.value)}
+                      placeholder="Pista (vacío = sin pista)"
+                      className="w-full rounded-md border-2 border-ink/10 bg-tile-light px-2 py-1 text-ink outline-none focus:border-amber"
+                    />
+                  )}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => guardarEdicion(p.id)}
+                      disabled={cargandoAccion}
+                      className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-tile-light disabled:opacity-60"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditandoId(null);
+                        setEditandoTexto("");
+                        setEditandoPista("");
+                      }}
+                      className="text-xs font-medium text-ink-soft hover:underline"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
-                  <span className="font-medium text-ink">{p.texto_mostrar ?? p.palabra}</span>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-ink">{p.texto_mostrar ?? p.palabra}</span>
+                    {p.explicacion && (
+                      <span className="text-xs text-ink-soft/80">Pista: {p.explicacion}</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-ink-soft">
                       {p.encontrada ? "encontrada" : p.posicion ? "posicionada" : "sin posición"}
@@ -240,6 +297,7 @@ export function EditarPartida() {
                           onClick={() => {
                             setEditandoId(p.id);
                             setEditandoTexto(p.texto_mostrar ?? p.palabra);
+                            setEditandoPista(p.explicacion ?? "");
                           }}
                           disabled={cargandoAccion}
                           className="text-xs font-medium text-ink hover:underline disabled:opacity-60"
@@ -264,26 +322,21 @@ export function EditarPartida() {
       </div>
 
       {partida.tipo === "crucigrama" ? (
-        <div className="rounded-lg border border-amber/40 bg-tile p-5 text-ink">
-          <p className="text-sm">
-            La generación de <strong>crucigramas</strong> todavía no está implementada en
-            el backend. Podés seguir agregando palabras, pero no se podrá generar la
-            grilla por ahora.
-          </p>
-        </div>
+        yaFinalizada ? (
+          cajaActiva
+        ) : (
+          // key = ids de palabras: al agregar/editar/eliminar una palabra, el
+          // editor se remonta y recarga del backend (su estado local quedaba
+          // desincronizado: el contador "x de N posicionadas" y la lista
+          // quedaban viejos hasta refrescar la página).
+          <EditorCrucigrama
+            key={partida.palabras.map((p) => p.id).join(",")}
+            codigo={codigo}
+            onFinalizada={cargar}
+          />
+        )
       ) : yaFinalizada ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-line bg-tile p-5 text-ink">
-          <p className="text-sm text-ink-soft">
-            Esta partida ya está <strong>activa</strong> y lista para jugar. Compartí el
-            código.
-          </p>
-          <Link
-            to={`/jugar/${partida.codigo}`}
-            className="inline-block w-fit rounded-md bg-amber px-4 py-2.5 font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
-          >
-            Ir a jugar
-          </Link>
-        </div>
+        cajaActiva
       ) : (
         <button
           onClick={finalizar}

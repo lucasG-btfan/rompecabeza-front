@@ -130,7 +130,17 @@ export function Jugar() {
           }}
         />
       ) : (
-        <CrucigramaGame codigo={codigo} palabras={partida?.palabras ?? []} />
+        <CrucigramaGame
+          codigo={codigo}
+          estado={estado}
+          partida={partida}
+          esInvitado={esInvitado}
+          onPalabraEncontrada={manejarPalabraEncontrada}
+          onProgreso={(e, t) => {
+            setEncontradas(e);
+            setTotal(t);
+          }}
+        />
       )}
 
       {completada && (

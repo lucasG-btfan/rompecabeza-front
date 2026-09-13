@@ -26,7 +26,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     let detail = res.statusText;
     try {
       const body = await res.json();
-      if (typeof body?.detail === "string") detail = body.detail;
+      if (typeof body?.detail === "string") {
+        detail = body.detail;
+      } else if (Array.isArray(body?.detail)) {
+        // Los 422 de FastAPI/Pydantic traen `detail` como ARRAY de errores
+        // ({loc, msg, type}). El statusText ("Unprocessable Content") no dice
+        // nada útil — formateamos el detalle real, ej: "fila: Input should be
+        // greater than or equal to 0".
+        detail = body.detail
+          .map(
+            (e: { loc?: unknown[]; msg?: string }) =>
+              `${[...(e.loc ?? [])].filter((p) => typeof p === "string").join(".")}: ${e.msg ?? "error de validación"}`,
+          )
+          .join(" · ");
+      }
     } catch {
       // La respuesta no era JSON (poco común); usamos el statusText.
     }

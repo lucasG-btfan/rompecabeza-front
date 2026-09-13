@@ -3,6 +3,8 @@ import type {
   CrearPartidaInput,
   CrearPartidaOutput,
   EdicionInput,
+  EditorPalabra,
+  EditorPartida,
   EstadoPartida,
   FinalizarPartidaOutput,
   MarcarEncontradaInput,
@@ -10,7 +12,7 @@ import type {
   Palabra,
   PalabraInput,
   Partida,
-  PosicionInput,
+  PosicionCrucigramaInput,
   RankingEntry,
   ResumenPartida,
   UnirseOutput,
@@ -27,6 +29,9 @@ export const partidasApi = {
   /** Vista pública de una partida por código (sin posiciones no encontradas). */
   obtenerPartida: (codigo: string) => api.get<Partida>(`/partidas/${codigo}`),
 
+  /** Layout editable del crucigrama, SOLO creador (C-09): posiciones siempre visibles. */
+  obtenerEditorPartida: (codigo: string) => api.get<EditorPartida>(`/partidas/${codigo}/editor`),
+
   /** Agrega palabras a una partida en estado 'creando' (solo creador). */
   agregarPalabras: (codigo: string, palabras: PalabraInput[]) =>
     api.post<Palabra[]>(`/partidas/${codigo}/palabras`, { palabras }),
@@ -39,9 +44,19 @@ export const partidasApi = {
   eliminarPalabra: (codigo: string, palabraId: string) =>
     api.delete<void>(`/partidas/${codigo}/palabras/${palabraId}`),
 
-  /** Posiciona manualmente una palabra en la grilla (solo creador). */
-  posicionarPalabra: (codigo: string, palabraId: string, posicion: PosicionInput) =>
-    api.put<Palabra>(`/partidas/${codigo}/palabras/${palabraId}/posicion`, posicion),
+  /** Posiciona manualmente una palabra del crucigrama en el editor (C-09, solo creador,
+   *  orientación H/V). El backend es la autoridad: re-valida conectividad/cruce/fantasma. */
+  posicionarPalabra: (
+    codigo: string,
+    palabraId: string,
+    posicion: PosicionCrucigramaInput,
+  ) => api.put<EditorPalabra>(`/partidas/${codigo}/palabras/${palabraId}/posicion`, posicion),
+
+  /** Quita la posición manual de una palabra del crucigrama en el editor (C-11, solo
+   *  creador, estado 'creando'): vuelve a `posicion: null` para reposicionarla o dejar
+   *  que finalizar la genere automáticamente. */
+  quitarPosicionPalabra: (codigo: string, palabraId: string) =>
+    api.delete<EditorPalabra>(`/partidas/${codigo}/palabras/${palabraId}/posicion`),
 
   /** Genera la sopa y pasa la partida a 'activo' (solo creador, solo tipo sopa). */
   finalizarPartida: (codigo: string) =>
@@ -63,6 +78,15 @@ export const partidasApi = {
     api.put<MarcarEncontradaOutput>(
       `/partidas/${codigo}/palabras/${palabraId}/encontrada`,
       seleccion,
+    ),
+
+  /** Valida las letras tipeadas de una palabra del CRUCIGRAMA (C-10, D1). El backend
+   * es la autoridad: normaliza con limpiar_para_grilla y compara contra la solución.
+   * 400 = letras incorrectas (el front limpia solo esa palabra); 200 = acierto. */
+  responderPalabra: (codigo: string, palabraId: string, letras: string) =>
+    api.put<MarcarEncontradaOutput>(
+      `/partidas/${codigo}/palabras/${palabraId}/respuesta`,
+      { letras },
     ),
 
   /** Tabla de puntajes de la partida. */

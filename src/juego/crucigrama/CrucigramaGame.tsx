@@ -1,40 +1,69 @@
-import type { Palabra } from "../../types";
-
-interface CrucigramaGameProps {
-  codigo: string;
-  palabras: Palabra[];
-}
+import type { EstadoPartida, Partida } from "../../types";
+import { useCrucigramaJuego } from "./useCrucigramaJuego";
+import { TableroCrucigrama } from "./TableroCrucigrama";
+import { PanelPistas } from "./PanelPistas";
 
 /**
- * Modo crucigrama. OJO: el backend todavía NO genera la grilla de crucigramas
- * (el endpoint /finalizar solo soporta 'sopa'), así que por ahora mostramos un
- * aviso y la lista de palabras/pistas cargadas. La estructura queda lista para
- * conectar la grilla cuando el backend sume el soporte.
+ * Container delgado del modo crucigrama JUGABLE (C-10, D4).
+ *
+ * Recibe del padre (`Jugar.tsx`) los props de la partida y delega TODO el
+ * estado y la mecánica a `useCrucigramaJuego`. La presentación se divide en
+ * `TableroCrucigrama` (grilla de celdas) y `PanelPistas` (pistas numeradas).
+ * Si el backend no devuelve crucigrama (`grilla` null), renderiza nada.
  */
-export function CrucigramaGame({ palabras }: CrucigramaGameProps) {
-  return (
-    <div className="flex flex-col items-center gap-6">
-      <div className="w-full max-w-md rounded-lg border border-amber/40 bg-tile p-6 text-center text-ink">
-        <p className="font-display text-xl">Crucigrama en camino</p>
-        <p className="mt-2 text-sm text-ink-soft">
-          La generación automática del crucigrama todavía no está disponible en el
-          backend. Mientras tanto, estas son las palabras cargadas:
-        </p>
-      </div>
 
-      <div className="flex w-full max-w-md flex-col gap-2">
-        {palabras.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center justify-between rounded-md border border-line/30 px-4 py-2 text-ink"
-          >
-            <span className="font-medium">{p.palabra}</span>
-            {p.explicacion && (
-              <span className="text-sm text-ink-soft">{p.explicacion}</span>
-            )}
-          </div>
-        ))}
-      </div>
+export interface CrucigramaGameProps {
+  codigo: string;
+  estado: EstadoPartida;
+  /** Vista pública de la partida: pistas (explicacion) numeradas. */
+  partida?: Partida | null;
+  esInvitado?: boolean;
+  onPalabraEncontrada?: (palabraId: string) => void;
+  onProgreso?: (encontradas: number, total: number) => void;
+}
+
+export function CrucigramaGame({
+  codigo,
+  estado,
+  partida,
+  esInvitado = false,
+  onPalabraEncontrada,
+  onProgreso,
+}: CrucigramaGameProps) {
+  const juego = useCrucigramaJuego({ codigo, estado, esInvitado, onPalabraEncontrada, onProgreso });
+
+  if (!juego.grilla) {
+    return null;
+  }
+
+  return (
+    <div className="flex w-full flex-col items-center gap-6">
+      <TableroCrucigrama
+        tablero={juego.tablero}
+        letras={juego.letras}
+        celdasActivas={juego.celdasActivas}
+        celdasEncontradas={juego.celdasEncontradas}
+        celdasError={juego.celdasError}
+        celdaFoco={juego.celdaFoco}
+        onCeldaClick={juego.manejarClickCelda}
+        onCambio={juego.manejarCambio}
+        onTeclado={juego.manejarTeclado}
+      />
+
+      <p className="max-w-sm text-center text-xs text-ink-soft">
+        Hacé click en una celda para elegir la palabra. Escribí para completar,
+        Backspace borra, Enter valida y Tab cambia de palabra.
+      </p>
+
+      {juego.error && <p className="max-w-sm text-center text-sm text-coral">{juego.error}</p>}
+
+      <PanelPistas
+        grilla={juego.grilla}
+        idPorNumero={juego.idPorNumero}
+        encontradasIds={juego.encontradasIds}
+        partida={partida}
+        onActivarPalabra={juego.activarPalabra}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { PrimaryButton } from "../components/PrimaryButton";
 import { CodigoGenerado } from "../components/codigo/CodigoGenerado";
 import { partidasApi } from "../api/partidas";
 import type { TipoPartida } from "../types";
+import { parsearPalabras } from "../utils/palabras";
 
 export function Dashboard() {
   const { usuario } = useAuth();
@@ -19,10 +20,9 @@ export function Dashboard() {
     e.preventDefault();
     setError(null);
 
-    const palabras = palabrasTexto
-      .split(/[,\n]/)
-      .map((p) => p.trim())
-      .filter(Boolean);
+    // "PALABRA" o "PALABRA: pista" / "PALABRA — pista" / "PALABRA | pista",
+    // separadas por coma o salto de línea (ver parsearPalabras en utils).
+    const palabras = parsearPalabras(palabrasTexto);
 
     if (palabras.length === 0) {
       setError("Escribí al menos una palabra.");
@@ -33,7 +33,7 @@ export function Dashboard() {
     try {
       const creada = await partidasApi.crearPartida({
         tipo,
-        palabras: palabras.map((palabra) => ({ palabra })),
+        palabras,
       });
       setCodigoCreado(creada.codigo);
     } catch (err) {
@@ -124,16 +124,21 @@ export function Dashboard() {
               id="palabras"
               value={palabrasTexto}
               onChange={(e) => setPalabrasTexto(e.target.value)}
-              placeholder="Separalas con coma, ej: CASA, PERRO, SOL"
-              rows={3}
+              placeholder={
+                tipo === "crucigrama"
+                  ? "CASA: donde vivís, PERRO — el mejor amigo\nSOL, LUNA"
+                  : "Separalas con coma, ej: CASA, PERRO, SOL"
+              }
+              rows={tipo === "crucigrama" ? 4 : 3}
               className="rounded-md border-2 border-ink/10 bg-tile-light px-3 py-2 text-ink placeholder:text-ink-soft/50 outline-none transition-colors focus:border-amber"
             />
           </div>
 
           {tipo === "crucigrama" && (
             <p className="text-xs text-amber">
-              Ojo: la generación de crucigramas todavía no está en el backend. Podés
-              crearla pero no se va a poder generar la grilla todavía.
+              Escribí cada palabra con su pista ({"CASA: donde vivís"}). La pista es la
+              definición que verán los jugadores. Después, el editor te deja posicionar las
+              palabras con drag o dejar que la grilla se genere sola al finalizar.
             </p>
           )}
 

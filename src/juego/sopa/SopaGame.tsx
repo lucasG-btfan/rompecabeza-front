@@ -57,7 +57,11 @@ function guardarProgresoLocal(codigo: string, hallazgos: HallazgoLocal[]) {
 }
 
 export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontrada, onProgreso }: SopaGameProps) {
-  const grilla = estado.grilla ?? [];
+  // La rama sopa SIEMPRE recibe `grilla` como string[][] (el backend mantiene
+  // la grilla de sopa como matriz). El tipo del estado es una unión con
+  // `GrillaCrucigrama` (partidas de crucigrama, C-10): narrow con Array.isArray
+  // y, defensivo, caer a grilla vacía si viniera el objeto por error.
+  const grilla: string[][] = Array.isArray(estado.grilla) ? estado.grilla : [];
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -102,7 +106,9 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
 
   const candidatas: PalabraCandidata[] = estado.palabras.map((p) => ({
     id: p.id,
-    texto: p.palabra.toUpperCase(),
+    // Para sopa el backend siempre manda `palabra` (en crucigrama va null por
+    // anti-cheat, C-10). El `?? ""` solo satisface el tipo sin cambiar runtime.
+    texto: (p.palabra ?? "").toUpperCase(),
     encontrada: encontradasIds.has(p.id),
   }));
 
@@ -113,7 +119,8 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
     if (!encontradasIds.has(p.id)) continue;
     const posicion = p.posicion ?? encontradasLocales.get(p.id) ?? null;
     if (posicion) {
-      for (const c of obtenerCeldasDePalabra(posicion, p.palabra.length)) {
+      // `?? ""`: ver nota en `candidatas` (sopa nunca recibe null en runtime).
+      for (const c of obtenerCeldasDePalabra(posicion, (p.palabra ?? "").length)) {
         celdasEncontradas.add(`${c.fila},${c.columna}`);
       }
     }
