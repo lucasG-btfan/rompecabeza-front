@@ -25,8 +25,10 @@ import type {
 } from "../../types";
 import {
   armarTablero,
+  celdaAdyacente,
   celdasDeEncontradas,
   celdasDePalabraGrilla,
+  describirCelda,
   idsEncontrados,
   indiceTrasBorrado,
   palabraEnCelda,
@@ -221,6 +223,123 @@ describe("celdasDeEncontradas", () => {
     expect(celdas.has("1,3")).toBe(false);
     expect(celdas.has("2,3")).toBe(false);
     expect(celdas.size).toBe(4);
+  });
+});
+
+describe("celdaAdyacente (C-12, D3)", () => {
+  // contrato spec crucigrama-juego: "una flecha en eje perpendicular enfoca la
+  // celda adyacente a la actual y activa la palabra que la cubre si existe".
+  // Devuelve null si el destino cae fuera de la grilla o es una celda negra
+  // (no hay palabra que cubrir ahí). Los casos del EJE de la palabra activa
+  // no son su responsabilidad (el hook los maneja con celdas[indice +/- 1]):
+  // devuelve null (defensivo) para no romper si el caller se equivoca.
+  //
+  // Layout PATO/ORO/AS (3x4):
+  //   PATO H (0,0)-(0,3); AS V (0,1),(1,1); ORO V (0,3),(1,3),(2,3);
+  //   negras: (1,0), (1,2), (2,0), (2,1), (2,2).
+  const tablero = () => armarTablero(grillaPato());
+
+  it("H + ArrowDown salta a la celda de abajo (perpendicular)", () => {
+    // Desde (0,1) (A de PATO) hacia abajo cae en (1,1) (S de AS).
+    expect(celdaAdyacente(0, 1, "H", "ArrowDown", tablero())).toEqual({ fila: 1, columna: 1 });
+  });
+
+  it("H + ArrowUp salta a la celda de arriba (perpendicular)", () => {
+    expect(celdaAdyacente(1, 1, "H", "ArrowUp", tablero())).toEqual({ fila: 0, columna: 1 });
+  });
+
+  it("H + ArrowDown sobre una celda negra devuelve null", () => {
+    // Desde (0,0) (P) hacia abajo cae en (1,0), negra.
+    expect(celdaAdyacente(0, 0, "H", "ArrowDown", tablero())).toBeNull();
+  });
+
+  it("V + ArrowRight salta a la celda de la derecha (perpendicular)", () => {
+    // Desde (0,1) (A de AS) hacia la derecha cae en (0,2) (T de PATO).
+    expect(celdaAdyacente(0, 1, "V", "ArrowRight", tablero())).toEqual({ fila: 0, columna: 2 });
+  });
+
+  it("V + ArrowLeft salta a la celda de la izquierda (perpendicular)", () => {
+    expect(celdaAdyacente(0, 1, "V", "ArrowLeft", tablero())).toEqual({ fila: 0, columna: 0 });
+  });
+
+  it("V + ArrowRight sobre una celda negra devuelve null", () => {
+    // Desde (1,1) (S de AS) a la derecha cae en (1,2), negra.
+    expect(celdaAdyacente(1, 1, "V", "ArrowRight", tablero())).toBeNull();
+  });
+
+  it("V + ArrowLeft sobre una celda negra devuelve null", () => {
+    expect(celdaAdyacente(1, 1, "V", "ArrowLeft", tablero())).toBeNull();
+  });
+
+  it("borde superior: H + ArrowUp desde la fila 0 devuelve null", () => {
+    expect(celdaAdyacente(0, 1, "H", "ArrowUp", tablero())).toBeNull();
+  });
+
+  it("borde inferior: H + ArrowDown desde la última fila devuelve null", () => {
+    expect(celdaAdyacente(2, 3, "H", "ArrowDown", tablero())).toBeNull();
+  });
+
+  it("borde izquierdo: V + ArrowLeft desde la columna 0 devuelve null", () => {
+    expect(celdaAdyacente(0, 0, "V", "ArrowLeft", tablero())).toBeNull();
+  });
+
+  it("borde derecho: V + ArrowRight desde la última columna devuelve null", () => {
+    expect(celdaAdyacente(1, 3, "V", "ArrowRight", tablero())).toBeNull();
+  });
+
+  it("flecha del EJE de la palabra activa devuelve null (la maneja el hook)", () => {
+    expect(celdaAdyacente(0, 1, "H", "ArrowLeft", tablero())).toBeNull();
+    expect(celdaAdyacente(0, 1, "H", "ArrowRight", tablero())).toBeNull();
+    expect(celdaAdyacente(0, 1, "V", "ArrowUp", tablero())).toBeNull();
+    expect(celdaAdyacente(0, 1, "V", "ArrowDown", tablero())).toBeNull();
+  });
+});
+
+describe("describirCelda (C-12, D5 — aria-label, spec accesibilidad)", () => {
+  // Contrato de la spec: "Número 3, fila 2, columna 4, letra A, encontrada";
+  // "Celda negra". La FILA/COLUMNA del label son 1-based (lector de pantalla:
+  // la celda (0,1) del layout es "fila 1, columna 2").
+
+  it("celda negra → 'Celda negra'", () => {
+    const t = armarTablero(grillaPato());
+    expect(describirCelda(t[1][0], 2, 1)).toBe("Celda negra");
+  });
+
+  it("vacía con número de pista → 'Celda vacía, número 1, fila 1, columna 1'", () => {
+    expect(describirCelda(celda(null, 1, "letra"), 1, 1)).toBe(
+      "Celda vacía, número 1, fila 1, columna 1",
+    );
+  });
+
+  it("vacía sin número → omite la parte del número", () => {
+    expect(describirCelda(celda(null, null, "letra"), 1, 3)).toBe(
+      "Celda vacía, fila 1, columna 3",
+    );
+  });
+
+  it("letra (normal) → 'Número 1, fila 1, columna 1, letra P'", () => {
+    expect(describirCelda(celda("P", 1, "letra"), 1, 1)).toBe(
+      "Número 1, fila 1, columna 1, letra P",
+    );
+  });
+
+  it("letra encontrada → agrega el estado al final (ejemplo literal de la spec)", () => {
+    const t = armarTablero(grillaPato());
+    expect(describirCelda(t[0][0], 1, 1, "encontrada")).toBe(
+      "Número 1, fila 1, columna 1, letra P, encontrada",
+    );
+  });
+
+  it("letra en error → agrega 'error' como estado", () => {
+    expect(describirCelda(celda("P", 1, "letra"), 1, 1, "error")).toBe(
+      "Número 1, fila 1, columna 1, letra P, error",
+    );
+  });
+
+  it("letra sin número → 'fila 1, columna 3, letra T'", () => {
+    expect(describirCelda(celda("T", null, "letra"), 1, 3)).toBe(
+      "fila 1, columna 3, letra T",
+    );
   });
 });
 

@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import type { EstadoPartida, Partida } from "../../types";
 import { useCrucigramaJuego } from "./useCrucigramaJuego";
 import { TableroCrucigrama } from "./TableroCrucigrama";
 import { PanelPistas } from "./PanelPistas";
+import { celdasDePalabraGrilla } from "./logica";
 
 /**
  * Container delgado del modo crucigrama JUGABLE (C-10, D4).
@@ -32,6 +34,17 @@ export function CrucigramaGame({
 }: CrucigramaGameProps) {
   const juego = useCrucigramaJuego({ codigo, estado, esInvitado, onPalabraEncontrada, onProgreso });
 
+  // Celdas de la palabra recién encontrada (C-12/D4): el hook expone el NUMERO
+  // (`palabraResaltada`); acá se resuelve a claves "fila,columna" con la
+  // geometría de la grilla (función pura, vitest) para que el tablero aplique
+  // `animate-found` sin duplicar lógica en componentes de presentación.
+  const celdasResaltadas = useMemo(() => {
+    if (!juego.grilla || juego.palabraResaltada == null) return new Set<string>();
+    const palabra = juego.grilla.palabras.find((w) => w.numero === juego.palabraResaltada);
+    if (!palabra) return new Set<string>();
+    return new Set(celdasDePalabraGrilla(palabra).map((c) => `${c.fila},${c.columna}`));
+  }, [juego.grilla, juego.palabraResaltada]);
+
   if (!juego.grilla) {
     return null;
   }
@@ -45,6 +58,7 @@ export function CrucigramaGame({
         celdasEncontradas={juego.celdasEncontradas}
         celdasError={juego.celdasError}
         celdaFoco={juego.celdaFoco}
+        celdasResaltadas={celdasResaltadas}
         onCeldaClick={juego.manejarClickCelda}
         onCambio={juego.manejarCambio}
         onTeclado={juego.manejarTeclado}

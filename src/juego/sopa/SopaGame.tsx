@@ -17,7 +17,7 @@ interface SopaGameProps {
   /** Si el jugador no tiene cuenta (invitado): su progreso va por localStorage,
    * no por el backend (que no persiste nada para invitados). */
   esInvitado?: boolean;
-  onPalabraEncontrada?: (palabraId: string) => void;
+  onPalabraEncontrada?: (palabraId: string, posicion?: Posicion | null) => void;
   onProgreso?: (encontradas: number, total: number) => void;
 }
 
@@ -219,7 +219,10 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
         });
       }
 
-      onPalabraEncontrada?.(deduccion.palabraId);
+      // Registrado: propagamos la posición que devolvió el back para que la
+      // grilla resalte la palabra en vivo (el estado inicial la trae null
+      // hasta que este jugador la encuentra — anti-revelación, ver back).
+      onPalabraEncontrada?.(deduccion.palabraId, resultado.posicion);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo validar la selección.");
     } finally {

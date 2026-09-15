@@ -27,9 +27,23 @@ export default {
           '60%': { transform: 'translateY(8px) rotate(2deg)', opacity: '1' },
           '100%': { transform: 'translateY(0) rotate(0deg)', opacity: '1' },
         },
+        // C-12/D4: highlight de la palabra recién encontrada en el crucigrama
+        // (pulso ámbar + escala; `both` deja la celda en su estado natural).
+        'found-flash': {
+          '0%': { transform: 'scale(1)', backgroundColor: 'rgba(200, 173, 127, 0)' },
+          '40%': { transform: 'scale(1.12)', backgroundColor: 'rgba(200, 173, 127, 0.45)' },
+          '100%': { transform: 'scale(1)', backgroundColor: 'rgba(200, 173, 127, 0)' },
+        },
+        // C-12/D4: celebración del banner de victoria (fade + scale-up).
+        'win-pop': {
+          '0%': { opacity: '0', transform: 'scale(0.9)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'tile-drop': 'tile-drop 0.5s ease-out both',
+        'found-flash': 'found-flash 0.6s ease-out both',
+        'win-pop': 'win-pop 0.5s ease-out both',
       },
     },
   },

@@ -1,5 +1,5 @@
 /**
- * Contratos de partidas — espejo de app/schemas/partida.py y app/schemas/usuario.py (ranking)
+ * Contratos de partidas — espejo de app/schemas/partida.py y app/schemas/usuario.py
  * del backend. Son el "contrato" con el endpoint de partidas.
  */
 
@@ -23,9 +23,13 @@ export interface PosicionCrucigramaInput {
   orientacion: OrientacionCrucigrama;
 }
 
-/** Palabra del editor manual (C-09): posiciones SIEMPRE visibles con orientación H/V. */
-export type EditorPalabra = Omit<Palabra, "posicion"> & {
+/** Palabra del editor manual (C-09): posiciones SIEMPRE visibles con orientación H/V.
+ *  Además, la vista del editor es SOLO del creador: su `palabra` sigue siendo
+ *  `string` (no nullable) aunque `Palabra` pública la haya vuelto nullable por
+ *  anti-cheat (C-12, D1) — el creador siempre ve la solución. */
+export type EditorPalabra = Omit<Palabra, "posicion" | "palabra"> & {
   posicion?: PosicionCrucigrama | null;
+  palabra: string;
 };
 
 /** Respuesta del GET /partidas/{codigo}/editor — layout editable, solo creador (C-09).
@@ -53,9 +57,13 @@ export interface PalabraInput {
 /** Una palabra tal como la devuelve el backend (schemas PalabraResponse/PalabraPublicaResponse). */
 export interface Palabra {
   id: string;
-  palabra: string;
-  /** Versión presentable con separadores ("CO-AUTOR"); `palabra` es la versión de grilla ("COAUTOR"). */
-  texto_mostrar?: string | null;
+  /** C-12 (D1): en la vista pública de un crucigrama va null para todo
+   *  no-creador (anti-cheat); el creador autenticado la recibe completa. En
+   *  sopa siempre viaja completa: la lista de palabras ES el juego. */
+  palabra: string | null;
+  /** Versión presentable con separadores ("CO-AUTOR"); `palabra` es la versión de grilla ("COAUTOR").
+   *  Null en el mismo escenario anti-cheat que `palabra` (C-12). */
+  texto_mostrar: string | null;
   explicacion?: string | null;
   /** Solo se revela si `encontrada` es true; si no, es null (anti-cheat del backend). */
   posicion?: Posicion | null;
@@ -119,7 +127,9 @@ export interface CrearPartidaOutput {
   estado: string;
 }
 
-/** Vista pública de una partida (PartidaPublicaResponse) — sin posiciones no encontradas. */
+/** Vista pública de una partida (PartidaPublicaResponse) — sin posiciones no encontradas.
+ *  `es_creador` (C-12, D1 REVISADO): true solo si el consultante autenticado es
+ *  el creador — el front la usa para gatEAR la pantalla del editor (6.5). */
 export interface Partida {
   id: string;
   codigo: string;
@@ -128,6 +138,7 @@ export interface Partida {
   palabras: Palabra[];
   config: Record<string, unknown> | null;
   creado_en: string;
+  es_creador: boolean;
 }
 
 /** Resumen para la lista "Mis partidas" (ResumenPartidaResponse — agregado en el backend). */
@@ -202,13 +213,4 @@ export interface MarcarEncontradaOutput {
 export interface UnirseOutput {
   modo: "registrado" | "invitado";
   iniciado_en?: string | null;
-}
-
-/** Una entrada del ranking (RankingEntry). */
-export interface RankingEntry {
-  username: string;
-  rol: string;
-  palabras_encontradas: number;
-  tiempo_segundos?: number | null;
-  puntaje: number;
 }

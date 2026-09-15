@@ -13,7 +13,6 @@ import type {
   PalabraInput,
   Partida,
   PosicionCrucigramaInput,
-  RankingEntry,
   ResumenPartida,
   UnirseOutput,
 } from "../types";
@@ -88,9 +87,6 @@ export const partidasApi = {
       `/partidas/${codigo}/palabras/${palabraId}/respuesta`,
       { letras },
     ),
-
-  /** Tabla de puntajes de la partida. */
-  obtenerRanking: (codigo: string) => api.get<RankingEntry[]>(`/partidas/${codigo}/ranking`),
 
   /** Elimina la partida permanentemente (solo creador). */
   eliminarPartida: (codigo: string) => api.delete<void>(`/partidas/${codigo}`),

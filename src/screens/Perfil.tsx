@@ -34,9 +34,9 @@ export function Perfil() {
 
       <div className="rounded-lg border border-line/30 bg-tile p-5 text-ink">
         <p className="text-sm text-ink-soft">
-          Tus <strong>puntos de partidas jugadas</strong> se calculan por partida y
-          aparecen en el ranking de cada una. Todavía no hay un endpoint que los
-          sume en un perfil global; cuando exista, se suma acá.
+          Cada partida guarda tu progreso mientras la jugás: las palabras que
+          encontraste quedan registradas en tu participación. No hay puntajes ni
+          ranking global — jugás por diversión.
         </p>
       </div>
 

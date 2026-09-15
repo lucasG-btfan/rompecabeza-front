@@ -9,7 +9,6 @@ import { Dashboard } from "./screens/Dashboard";
 import { MisProyectos } from "./screens/MisProyectos";
 import { EditarPartida } from "./screens/EditarPartida";
 import { Jugar } from "./screens/Jugar";
-import { Ranking } from "./screens/Ranking";
 import { Perfil } from "./screens/Perfil";
 
 export default function App() {
@@ -36,7 +35,6 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/jugar/:codigo" element={<Jugar />} />
-          <Route path="/jugar/:codigo/ranking" element={<Ranking />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />

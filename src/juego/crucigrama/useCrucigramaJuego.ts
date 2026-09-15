@@ -11,6 +11,7 @@ import type {
 } from "../../types";
 import {
   armarTablero,
+  celdaAdyacente,
   celdasDeEncontradas,
   celdasDePalabraGrilla,
   idsEncontrados,
@@ -19,6 +20,7 @@ import {
   respuestaDePalabra,
   siguienteCeldaVacia,
   type CeldaTablero,
+  type FlechaTeclado,
 } from "./logica";
 
 /**
@@ -96,6 +98,9 @@ export interface CrucigramaJuego {
   celdasEncontradas: Set<string>;
   celdasError: Set<string>;
   celdaFoco: { fila: number; columna: number } | null;
+  /** Número de pista de la palabra recién encontrada (highlight temporal,
+   *  C-12/D4): anima sus celdas ~800ms antes de quedar fijadas. */
+  palabraResaltada: number | null;
   idPorNumero: Map<number, string>;
   encontradasIds: Set<string>;
   error: string | null;
@@ -125,6 +130,7 @@ export function useCrucigramaJuego({
   const [celdaFoco, setCeldaFoco] = useState<CeldaRef | null>(null);
   const [letras, setLetras] = useState<Map<string, string>>(new Map());
   const [celdasError, setCeldasError] = useState<Set<string>>(new Set());
+  const [palabraResaltada, setPalabraResaltada] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [progresoLocal, setProgresoLocal] = useState<HallazgoLocal[]>(() =>
@@ -134,11 +140,13 @@ export function useCrucigramaJuego({
   // React no está commiteado en el mismo evento).
   const letrasRef = useRef(letras);
   const timeoutErrorRef = useRef<number | null>(null);
+  const timeoutHighlightRef = useRef<number | null>(null);
 
-  // Limpia el flash de error al desmontar o cambiar de partida.
+  // Limpia los flashes (error, highlight) al desmontar o cambiar de partida.
   useEffect(
     () => () => {
       if (timeoutErrorRef.current != null) window.clearTimeout(timeoutErrorRef.current);
+      if (timeoutHighlightRef.current != null) window.clearTimeout(timeoutHighlightRef.current);
     },
     [codigo],
   );
@@ -337,23 +345,25 @@ export function useCrucigramaJuego({
       return;
     }
 
-    // Eje perpendicular: celda vecina en la dirección de la flecha.
-    const vecina: CeldaRef | null =
-      horizontal && key === "ArrowUp"
-        ? { fila: fila - 1, columna }
-        : horizontal && key === "ArrowDown"
-          ? { fila: fila + 1, columna }
-          : !horizontal && key === "ArrowLeft"
-            ? { fila, columna: columna - 1 }
-            : !horizontal && key === "ArrowRight"
-              ? { fila, columna: columna + 1 }
-              : null;
-    if (!vecina) return;
-    const preferencia: OrientacionCrucigrama = horizontal ? "V" : "H";
-    const palabra = palabraEnCelda(grilla, vecina.fila, vecina.columna, preferencia);
+    // Eje perpendicular (C-12, D3): celda vecina en la dirección de la flecha
+    // (spec: "el foco nunca queda atrapado en el eje de la palabra activa").
+    // `celdaAdyacente` resuelve bordes y celdas negras como función pura.
+    const destino = celdaAdyacente(
+      fila,
+      columna,
+      palabraActiva.orientacion,
+      key as FlechaTeclado,
+      tablero,
+    );
+    if (!destino) return;
+    const preferencia: OrientacionCrucigrama = palabraActiva.orientacion === "H" ? "V" : "H";
+    const palabra = palabraEnCelda(grilla, destino.fila, destino.columna, preferencia);
     if (palabra && palabra.numero !== palabraActiva.numero) {
-      activarPalabra(palabra);
+      activarPalabra(palabra); // reenfoca a su primera vacía
     }
+    // El foco queda en la celda adyacente (pisa el reenfoque de activarPalabra
+    // solo si la activación procedió: misma semántica que manejarClickCelda).
+    setCeldaFoco(destino);
   }
 
   /** Tab: siguiente/anterior palabra sin encontrar (orden de pista). */
@@ -469,6 +479,14 @@ export function useCrucigramaJuego({
           });
         }
         onPalabraEncontrada?.(id);
+        // Highlight temporal de la palabra recién encontrada (C-12/D4): anima
+        // sus celdas ~800ms antes de quedar fijadas como encontradas.
+        setPalabraResaltada(palabra.numero);
+        if (timeoutHighlightRef.current != null) window.clearTimeout(timeoutHighlightRef.current);
+        timeoutHighlightRef.current = window.setTimeout(() => {
+          setPalabraResaltada(null);
+          timeoutHighlightRef.current = null;
+        }, 800);
         // Letras quedan fijas (bloqueadas): la palabra pasa a pintarse como
         // encontrada y se deselecciona.
         setPalabraActiva(null);
@@ -512,6 +530,7 @@ export function useCrucigramaJuego({
     celdasEncontradas,
     celdasError,
     celdaFoco,
+    palabraResaltada,
     idPorNumero,
     encontradasIds,
     error,

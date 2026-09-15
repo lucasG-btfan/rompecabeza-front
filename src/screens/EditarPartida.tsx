@@ -148,6 +148,31 @@ export function EditarPartida() {
     );
   }
 
+  // Gating por rol (C-12, D1 REVISADO): el editor es del creador. Quien no lo
+  // es (otro usuario autenticado o invitado con el código) no ve el editor —
+  // las soluciones del crucigrama viajan null en la vista pública y toda
+  // mutación exige cookie de creador (403). El backend setea `es_creador` por
+  // sesión; el creador autenticado pasa por acá sin cambios.
+  if (!partida.es_creador) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 py-10">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-line bg-tile p-8 text-center text-ink">
+          <p className="font-display text-2xl">Esta partida no es tuya</p>
+          <p className="text-sm text-ink-soft">
+            Solo el creador puede editarla. Si te compartieron el código, podés
+            jugarla.
+          </p>
+          <Link
+            to={`/jugar/${partida.codigo}`}
+            className="rounded-md bg-amber px-5 py-2.5 font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
+          >
+            Ir a jugar
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const yaFinalizada = partida.estado !== "creando";
 
   const cajaActiva = (
@@ -282,7 +307,7 @@ export function EditarPartida() {
               ) : (
                 <>
                   <div className="flex flex-col">
-                    <span className="font-medium text-ink">{p.texto_mostrar ?? p.palabra}</span>
+                    <span className="font-medium text-ink">{p.texto_mostrar ?? p.palabra ?? ""}</span>
                     {p.explicacion && (
                       <span className="text-xs text-ink-soft/80">Pista: {p.explicacion}</span>
                     )}
@@ -296,7 +321,7 @@ export function EditarPartida() {
                         <button
                           onClick={() => {
                             setEditandoId(p.id);
-                            setEditandoTexto(p.texto_mostrar ?? p.palabra);
+                            setEditandoTexto(p.texto_mostrar ?? p.palabra ?? "");
                             setEditandoPista(p.explicacion ?? "");
                           }}
                           disabled={cargandoAccion}

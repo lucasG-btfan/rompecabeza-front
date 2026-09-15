@@ -135,6 +135,64 @@ export function celdasDePalabraGrilla(
   }));
 }
 
+/** Flechas de teclado aceptadas por `celdaAdyacente` (solo eje perpendicular). */
+export type FlechaTeclado = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
+
+/** Delta de la navegación PERPENDICULAR: si la palabra activa es H, ArrowUp/
+ * ArrowDown recorren las filas (cruzando a las palabras verticales vecinas);
+ * si es V, ArrowLeft/ArrowRight recorren las columnas. Las flechas del MISMO
+ * eje de la palabra no pertenecen a esta función (el hook las resuelve con
+ * `celdas[indice +/- 1]`): valen null (defensivo).
+ */
+const PERPENDICULAR: Record<
+  OrientacionCrucigrama,
+  Record<FlechaTeclado, { dr: number; dc: number } | null>
+> = {
+  H: {
+    ArrowUp: { dr: -1, dc: 0 },
+    ArrowDown: { dr: 1, dc: 0 },
+    ArrowLeft: null,
+    ArrowRight: null,
+  },
+  V: {
+    ArrowLeft: { dr: 0, dc: -1 },
+    ArrowRight: { dr: 0, dc: 1 },
+    ArrowUp: null,
+    ArrowDown: null,
+  },
+};
+
+/**
+ * Celda vecina en eje PERPENDICULAR a la palabra activa (C-12, D3, spec
+ * crucigrama-juego: "una flecha en eje perpendicular enfoca la celda adyacente
+ * a la actual... el foco nunca queda atrapado en el eje de la palabra activa").
+ *
+ * Devuelve `null` cuando no hay celda a la cual enfocar:
+ * - el destino cae fuera de la grilla (borde);
+ * - la celda destino es negra (ninguna palabra la cubre);
+ * - la flecha pertenece al EJE de la palabra activa (responsabilidad del hook).
+ *
+ * Firma: 4 args documentados + `tablero` (CeldaTablero[][]) para conocer las
+ * dimensiones reales y poder resolver los bordes como función pura (desvío
+ * documentado del design, ver docs de C-12).
+ */
+export function celdaAdyacente(
+  fila: number,
+  columna: number,
+  orientacionActiva: OrientacionCrucigrama,
+  key: FlechaTeclado,
+  tablero: CeldaTablero[][],
+): { fila: number; columna: number } | null {
+  const delta = PERPENDICULAR[orientacionActiva][key];
+  if (!delta) return null;
+  const destino = { fila: fila + delta.dr, columna: columna + delta.dc };
+  const filaDestino = tablero[destino.fila];
+  if (!filaDestino) return null;
+  const celda = filaDestino[destino.columna];
+  if (!celda || celda.tipo === "negra") return null;
+  return destino;
+}
+
 /** Letras tipeadas de la palabra concatenadas en orden (H o V). Si falta
  * alguna celda, null (palabra incompleta — no se valida contra el backend). */
 export function respuestaDePalabra(
@@ -196,6 +254,42 @@ export function celdasDeEncontradas(
     }
   }
   return celdas;
+}
+
+/** Estado de la celda para el aria-label (spec accesibilidad C-12 D5):
+ * "letra" (normal), "encontrada" o "error". "negra"/"vacía" se derivan del
+ * contenido de la celda, no del estado. */
+export type EstadoCeldaLabel = "letra" | "encontrada" | "error";
+
+/**
+ * Aria-label descriptivo de una celda del crucigrama (C-12, D5, spec
+ * accesibilidad): "Número 3, fila 2, columna 4, letra A, encontrada" / "Celda
+ * negra" / "Celda vacía, número 1, fila 1, columna 1".
+ *
+ * - La FILA/COLUMNA del label son 1-based (el lector de pantalla las presenta
+ *   como el usuario las ve en la pista: "1-A", "2-V"); la celda de índice
+ *   (0,1) del layout se describe como "fila 1, columna 2".
+ * - `celda.letra` debe ser la letra VISIBLE (tipeada o revelada por acierto),
+ *   nunca la solución oculta de una palabra no encontrada (anti-cheat por
+ *   accesibilidad) — el caller arma la celda visible antes de llamarla.
+ */
+export function describirCelda(
+  celda: Pick<CeldaTablero, "letra" | "numero" | "tipo">,
+  fila: number,
+  columna: number,
+  estado: EstadoCeldaLabel = "letra",
+): string {
+  if (celda.tipo === "negra") return "Celda negra";
+  const posicion = `fila ${fila}, columna ${columna}`;
+  const sufijo = estado === "letra" ? "" : `, ${estado}`;
+  if (celda.letra == null) {
+    const numero = celda.numero != null ? `número ${celda.numero}, ` : "";
+    return `Celda vacía, ${numero}${posicion}`;
+  }
+  // "Número" con mayúscula inicial (inicio de la frase, ej. de la spec:
+  // "Número 3, fila 2, columna 4, letra A, encontrada").
+  const numero = celda.numero != null ? `Número ${celda.numero}, ` : "";
+  return `${numero}${posicion}, letra ${celda.letra}${sufijo}`;
 }
 
 export interface ResultadoBorrado {
