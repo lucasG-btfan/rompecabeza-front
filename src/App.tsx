@@ -1,4 +1,9 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+  RouterProvider,
+} from "react-router-dom";
 import { useAuth } from "./store/auth";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -10,6 +15,38 @@ import { MisProyectos } from "./screens/MisProyectos";
 import { EditarPartida } from "./screens/EditarPartida";
 import { Jugar } from "./screens/Jugar";
 import { Perfil } from "./screens/Perfil";
+
+// Data router (fix C-13): `useBlocker` (Jugar.tsx) exige un data router.
+// Con <BrowserRouter> declarativo NO existe DataRouterContext y el invariant
+// "useBlocker must be used within a data router" tiraba en cada render de
+// /jugar/:codigo → pantalla en blanco. Se conserva el árbol de rutas
+// idéntico con createRoutesFromElements (Layout/ProtectedRoute renderizan
+// <Outlet/> y son compatibles con rutas layout pathless). El router vive a
+// nivel de módulo para no recrearse en cada render del componente.
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
+      {/* Layout envuelve las rutas que comparten Header/navegación.
+          Las pantallas de auth (login/registro) van fuera para no mostrar header. */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/registro" element={<Registro />} />
+
+      <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/jugar/:codigo" element={<Jugar />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/mis-proyectos" element={<MisProyectos />} />
+          <Route path="/mis-proyectos/:codigo" element={<EditarPartida />} />
+          <Route path="/perfil" element={<Perfil />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Home />} />
+    </>,
+  ),
+);
 
 export default function App() {
   const { cargandoSesion } = useAuth();
@@ -24,28 +61,5 @@ export default function App() {
     );
   }
 
-  return (
-    <BrowserRouter>
-      {/* Layout envuelve las rutas que comparten Header/navegación.
-          Las pantallas de auth (login/registro) van fuera para no mostrar header. */}
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/registro" element={<Registro />} />
-
-        <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/jugar/:codigo" element={<Jugar />} />
-
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/mis-proyectos" element={<MisProyectos />} />
-            <Route path="/mis-proyectos/:codigo" element={<EditarPartida />} />
-            <Route path="/perfil" element={<Perfil />} />
-          </Route>
-        </Route>
-
-        <Route path="*" element={<Home />} />
-      </Routes>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 }
