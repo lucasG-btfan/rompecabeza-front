@@ -15,6 +15,7 @@ import { MisProyectos } from "./screens/MisProyectos";
 import { EditarPartida } from "./screens/EditarPartida";
 import { Jugar } from "./screens/Jugar";
 import { Perfil } from "./screens/Perfil";
+import { Lobby } from "./screens/Lobby";
 
 // Data router (fix C-13): `useBlocker` (Jugar.tsx) exige un data router.
 // Con <BrowserRouter> declarativo NO existe DataRouterContext y el invariant
@@ -33,6 +34,7 @@ const router = createBrowserRouter(
 
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/lobby" element={<Lobby />} />
         <Route path="/jugar/:codigo" element={<Jugar />} />
 
         <Route element={<ProtectedRoute />}>

@@ -161,6 +161,8 @@ export interface ResumenPartida {
   palabras_encontradas: number;
   /** C-15: nombre opcional asignado por el creador (null = sin nombre). */
   nombre?: string | null;
+  /** C-17 (D10): la partida tiene un duelo 1v1 activo (badge en MisProyectos). */
+  en_duelo: boolean;
 }
 
 /** Palabra con su estado en el juego (EstadoPalabraResponse). */
@@ -221,7 +223,9 @@ export interface MarcarEncontradaOutput {
 }
 
 /** Respuesta de unirse a una partida (UnirseResponse). C-14: sin `iniciado_en`
- * (el cronómetro arranca en el cliente al montar la pantalla de juego). */
+ * (el cronómetro arranca en el cliente al montar la pantalla de juego).
+ * C-17 (D9): `emparejado` true si el unirse disparó auto-match 1v1. */
 export interface UnirseOutput {
   modo: "registrado" | "invitado";
+  emparejado: boolean;
 }

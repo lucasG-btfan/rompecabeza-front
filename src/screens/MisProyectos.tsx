@@ -157,6 +157,11 @@ export function MisProyectos() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {p.en_duelo && (
+                    <span className="rounded-full bg-ink px-3 py-1 text-xs font-semibold text-tile-light" title="Esta partida tiene un duelo 1v1 en curso">
+                      en duelo
+                    </span>
+                  )}
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${clase}`}>
                     {texto}
                   </span>

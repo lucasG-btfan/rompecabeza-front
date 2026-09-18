@@ -36,6 +36,7 @@ export function Layout() {
           </Link>
 
           <nav className="flex items-center gap-8">
+            <NavLinkItem to="/lobby">Lobby</NavLinkItem>
             {modo === "logueado" && (
               <div className="flex items-center gap-6">
                 <NavLinkItem to="/dashboard">Dashboard</NavLinkItem>
