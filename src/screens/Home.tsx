@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Wordmark } from "../components/Wordmark";
 import { PrimaryButton } from "../components/PrimaryButton";
-import { InputCodigo } from "../components/codigo/InputCodigo";
 import { useAuth } from "../store/auth";
 
 export function Home() {
@@ -53,11 +52,16 @@ export function Home() {
         )}
       </div>
 
-      <div className="w-full max-w-sm rounded-lg border border-line bg-tile p-6 text-ink shadow-[6px_6px_0_0_rgba(0,0,0,0.25)]">
-        <p className="mb-3 text-center text-sm font-medium text-ink-soft">
-          ¿Tenés un código? Unite a una partida
+      <div className="w-full max-w-sm rounded-lg border border-line bg-tile p-6 text-center text-ink shadow-[6px_6px_0_0_rgba(0,0,0,0.25)]">
+        <p className="font-display text-xl">Jugá con otros</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Explorá las partidas del lobby y desafiá a alguien en 1v1.
         </p>
-        <InputCodigo />
+        <Link to="/lobby">
+          <PrimaryButton className="mt-4 hover:animate-dorado-hover motion-reduce:hover:animate-none motion-reduce:hover:bg-[#B1883F]">
+            Ir al lobby
+          </PrimaryButton>
+        </Link>
       </div>
     </div>
   );

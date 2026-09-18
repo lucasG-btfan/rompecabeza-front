@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { lobbyApi } from "../api/lobby";
 import Carrusel from "../components/lobby/Carrusel";
@@ -26,10 +26,16 @@ export function Lobby() {
   const [partidas, setPartidas] = useState<PartidaLobby[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorLobby, setErrorLobby] = useState<string | null>(null);
-  const [indice, setIndice] = useState(0);
+  const [indiceSopa, setIndiceSopa] = useState(0);
+  const [indiceCrucigrama, setIndiceCrucigrama] = useState(0);
   const [partidaSeleccionada, setPartidaSeleccionada] = useState<PartidaLobby | null>(null);
 
   const espera = useEmparejamiento();
+  const sopas = useMemo(() => partidas.filter((p) => p.tipo === "sopa"), [partidas]);
+  const crucigramas = useMemo(
+    () => partidas.filter((p) => p.tipo === "crucigrama"),
+    [partidas],
+  );
 
   const cargarPartidas = useCallback(async () => {
     setCargando(true);
@@ -37,6 +43,8 @@ export function Lobby() {
     try {
       const lista = await lobbyApi.listar();
       setPartidas(lista);
+      setIndiceSopa(0);
+      setIndiceCrucigrama(0);
     } catch (e) {
       setErrorLobby(
         e instanceof Error ? mensajeError({ message: e.message }) : mensajeError(null),
@@ -209,12 +217,37 @@ export function Lobby() {
 
       {!cargando && errorLobby === null && partidas.length > 0 && (
         <>
-          <Carrusel
-            partidas={partidas}
-            indice={indice}
-            onCambiarIndice={setIndice}
-            onSeleccionar={setPartidaSeleccionada}
-          />
+          <section className="flex flex-col gap-3">
+            <h2 className="font-display text-xl text-ink">Sopas de letras</h2>
+            {sopas.length > 0 ? (
+              <Carrusel
+                partidas={sopas}
+                indice={indiceSopa}
+                onCambiarIndice={setIndiceSopa}
+                onSeleccionar={setPartidaSeleccionada}
+              />
+            ) : (
+              <p className="rounded-lg border border-line bg-tile p-5 text-center text-sm text-ink-soft">
+                Todavía no hay sopas de letras.
+              </p>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="font-display text-xl text-ink">Crucigramas</h2>
+            {crucigramas.length > 0 ? (
+              <Carrusel
+                partidas={crucigramas}
+                indice={indiceCrucigrama}
+                onCambiarIndice={setIndiceCrucigrama}
+                onSeleccionar={setPartidaSeleccionada}
+              />
+            ) : (
+              <p className="rounded-lg border border-line bg-tile p-5 text-center text-sm text-ink-soft">
+                Todavía no hay crucigramas.
+              </p>
+            )}
+          </section>
 
           {partidaSeleccionada !== null && (
             <Popup

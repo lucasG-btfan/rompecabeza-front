@@ -39,11 +39,18 @@ export default {
           '0%': { opacity: '0', transform: 'scale(0.9)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        // Hover del botón dorado del Home: primero se aclara y luego sube a
+        // mayor intensidad (C-17, card "Jugá con otros" → lobby).
+        'dorado-hover': {
+          '0%': { backgroundColor: '#EBD9B4' },
+          '100%': { backgroundColor: '#B1883F' },
+        },
       },
       animation: {
         'tile-drop': 'tile-drop 0.5s ease-out both',
         'found-flash': 'found-flash 0.6s ease-out both',
         'win-pop': 'win-pop 0.5s ease-out both',
+        'dorado-hover': 'dorado-hover 0.5s ease-in-out forwards',
       },
     },
   },

@@ -1,5 +1,6 @@
 import type { PartidaLobby } from "../../types";
 import { anteriorIndice, siguienteIndice } from "../../utils/carrusel";
+import { etiquetaTipo } from "../../utils/tipoPartida";
 
 interface CarruselProps {
   partidas: PartidaLobby[];
@@ -49,7 +50,7 @@ export default function Carrusel({
             )}
           </div>
           <p className="mt-2 text-sm text-ink-soft">
-            Sopa de letras · {partida.cantidad_palabras}{" "}
+            {etiquetaTipo(partida.tipo)} · {partida.cantidad_palabras}{" "}
             {partida.cantidad_palabras === 1 ? "palabra" : "palabras"}
           </p>
         </button>

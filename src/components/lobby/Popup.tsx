@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import type { PartidaLobby } from "../../types";
+import { etiquetaTipo } from "../../utils/tipoPartida";
 
 interface PopupProps {
   partida: PartidaLobby;
@@ -36,7 +37,7 @@ export default function Popup({
           <div>
             <h2 className="font-display text-xl">{titulo}</h2>
             <p className="mt-1 text-sm text-ink-soft">
-              {partida.cantidad_palabras} palabras · código{" "}
+              {etiquetaTipo(partida.tipo)} · {partida.cantidad_palabras} palabras · código{" "}
               <span className="font-mono tracking-widest">{partida.codigo}</span>
             </p>
           </div>
