@@ -3,15 +3,24 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { CodigoGenerado } from "../components/codigo/CodigoGenerado";
+import { ListaPalabrasInput } from "../components/ListaPalabrasInput";
 import { partidasApi } from "../api/partidas";
 import type { TipoPartida } from "../types";
-import { parsearPalabras } from "../utils/palabras";
+import {
+  nuevaFila,
+  agregarFila,
+  quitarFila,
+  actualizarFila,
+  filasAPalabras,
+  type FilaPalabra,
+} from "../utils/filasPalabras";
 
 export function Dashboard() {
   const { usuario } = useAuth();
 
   const [tipo, setTipo] = useState<TipoPartida>("sopa");
-  const [palabrasTexto, setPalabrasTexto] = useState("");
+  const [filas, setFilas] = useState<FilaPalabra[]>(() => [nuevaFila()]);
+  const [nombre, setNombre] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codigoCreado, setCodigoCreado] = useState<string | null>(null);
@@ -20,9 +29,10 @@ export function Dashboard() {
     e.preventDefault();
     setError(null);
 
-    // "PALABRA" o "PALABRA: pista" / "PALABRA — pista" / "PALABRA | pista",
-    // separadas por coma o salto de línea (ver parsearPalabras en utils).
-    const palabras = parsearPalabras(palabrasTexto);
+    // C-16 D4: convierte filas (palabra + pista) a PalabraInput[] según tipo.
+    // R1 (sopa): nunca manda `explicacion`; R2 (crucigrama): la manda solo si
+    // la pista no quedó vacía tras trim.
+    const palabras = filasAPalabras(filas, tipo);
 
     if (palabras.length === 0) {
       setError("Escribí al menos una palabra.");
@@ -34,6 +44,7 @@ export function Dashboard() {
       const creada = await partidasApi.crearPartida({
         tipo,
         palabras,
+        nombre: nombre.trim() || null,
       });
       setCodigoCreado(creada.codigo);
     } catch (err) {
@@ -71,7 +82,7 @@ export function Dashboard() {
           <div className="flex flex-wrap gap-3">
             <Link
               to={`/mis-proyectos/${codigoCreado}`}
-              className="rounded-md bg-amber px-4 py-2.5 text-center font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
+              className="rounded-md bg-amber px-4 py-2.5 text-center font-semibold text-ink shadow-[3px_3px_0_0_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5"
             >
               Editar partida
             </Link>
@@ -88,6 +99,21 @@ export function Dashboard() {
           onSubmit={manejarSubmit}
           className="flex flex-col gap-4 rounded-lg border border-line bg-tile p-6 text-ink shadow-[6px_6px_0_0_rgba(0,0,0,0.25)]"
         >
+          <div>
+            <label htmlFor="nombre" className="text-sm font-medium text-ink-soft">
+              Nombre de la partida <span className="font-normal text-ink-soft/60">(opcional)</span>
+            </label>
+            <input
+              id="nombre"
+              type="text"
+              value={nombre}
+              maxLength={50}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Ej: Fiesta de cumpleaños"
+              className="mt-1.5 w-full rounded-md border-2 border-ink/10 bg-white/40 px-3 py-2 text-sm text-ink placeholder:text-ink-soft/50 outline-none transition-colors focus:border-amber"
+            />
+          </div>
+
           <div>
             <p className="mb-2 text-sm font-medium text-ink-soft">Tipo de partida</p>
             <div className="flex gap-3">
@@ -116,31 +142,15 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="palabras" className="text-sm font-medium text-ink-soft">
-              Palabras
-            </label>
-            <textarea
-              id="palabras"
-              value={palabrasTexto}
-              onChange={(e) => setPalabrasTexto(e.target.value)}
-              placeholder={
-                tipo === "crucigrama"
-                  ? "CASA: donde vivís, PERRO — el mejor amigo\nSOL, LUNA"
-                  : "Separalas con coma, ej: CASA, PERRO, SOL"
-              }
-              rows={tipo === "crucigrama" ? 4 : 3}
-              className="rounded-md border-2 border-ink/10 bg-tile-light px-3 py-2 text-ink placeholder:text-ink-soft/50 outline-none transition-colors focus:border-amber"
-            />
-          </div>
-
-          {tipo === "crucigrama" && (
-            <p className="text-xs text-amber">
-              Escribí cada palabra con su pista ({"CASA: donde vivís"}). La pista es la
-              definición que verán los jugadores. Después, el editor te deja posicionar las
-              palabras con drag o dejar que la grilla se genere sola al finalizar.
-            </p>
-          )}
+          <ListaPalabrasInput
+            filas={filas}
+            tipo={tipo}
+            onCambiarFila={(indice, cambio) =>
+              setFilas((prev) => actualizarFila(prev, indice, cambio))
+            }
+            onAgregarFila={() => setFilas((prev) => agregarFila(prev))}
+            onQuitarFila={(indice) => setFilas((prev) => quitarFila(prev, indice))}
+          />
 
           {error && <p className="text-sm text-coral">{error}</p>}
 

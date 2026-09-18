@@ -9,14 +9,12 @@ import {
   type PalabraCandidata,
 } from "./logica";
 import { partidasApi } from "../../api/partidas";
+import { idsEncontrados } from "../compartido/progreso";
 import type { EstadoPartida, Posicion } from "../../types";
 
 interface SopaGameProps {
   codigo: string;
   estado: EstadoPartida;
-  /** Si el jugador no tiene cuenta (invitado): su progreso va por localStorage,
-   * no por el backend (que no persiste nada para invitados). */
-  esInvitado?: boolean;
   onPalabraEncontrada?: (palabraId: string, posicion?: Posicion | null) => void;
   onProgreso?: (encontradas: number, total: number) => void;
 }
@@ -26,41 +24,10 @@ interface Seleccion {
   fin: Celda | null;
 }
 
-/** Hallazgo del invitado guardado en localStorage: id + posición (para resaltar). */
-interface HallazgoLocal {
-  id: string;
-  posicion: Posicion | null;
-}
-
-/** Clave de localStorage con el progreso del invitado, por partida. */
-function claveProgreso(codigo: string) {
-  return `sopa_progreso_${codigo}`;
-}
-
-function leerProgresoLocal(codigo: string): HallazgoLocal[] {
-  try {
-    const raw = localStorage.getItem(claveProgreso(codigo));
-    const arr = raw ? (JSON.parse(raw) as HallazgoLocal[]) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function guardarProgresoLocal(codigo: string, hallazgos: HallazgoLocal[]) {
-  try {
-    localStorage.setItem(claveProgreso(codigo), JSON.stringify(hallazgos));
-  } catch {
-    // localStorage puede no estar disponible (modo privado/errores); el juego
-    // sigue funcionando, solo no se persiste el progreso del invitado.
-  }
-}
-
-export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontrada, onProgreso }: SopaGameProps) {
+export function SopaGame({ codigo, estado, onPalabraEncontrada, onProgreso }: SopaGameProps) {
   // La rama sopa SIEMPRE recibe `grilla` como string[][] (el backend mantiene
-  // la grilla de sopa como matriz). El tipo del estado es una unión con
-  // `GrillaCrucigrama` (partidas de crucigrama, C-10): narrow con Array.isArray
-  // y, defensivo, caer a grilla vacía si viniera el objeto por error.
+  // la grilla como matriz). Defensivo: si viniera la GrillaCrucigrama (C-10),
+  // narrow con Array.isArray y caer a vacío.
   const grilla: string[][] = Array.isArray(estado.grilla) ? estado.grilla : [];
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,30 +46,10 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
   const inicioRef = useRef<Celda | null>(null);
   const finRef = useRef<Celda | null>(null);
 
-  // Progreso del invitado (solo se usa si esInvitado).
-  const [progresoLocal, setProgresoLocal] = useState<HallazgoLocal[]>(() =>
-    esInvitado ? leerProgresoLocal(codigo) : [],
-  );
-
-  // Cuando cambia el código (otra partida) y el jugador es invitado, recargamos
-  // su progreso local para esa partida.
-  useEffect(() => {
-    if (esInvitado) {
-      setProgresoLocal(leerProgresoLocal(codigo));
-    }
-  }, [codigo, esInvitado]);
-
-  // Palabras encontradas por ESTE jugador: las del backend (registrado) más,
-  // si es invitado, las de su localStorage.
-  const encontradasLocales = new Map(
-    progresoLocal.map((h) => [h.id, h.posicion]),
-  );
-  const encontradasIds = new Set<string>();
-  for (const p of estado.palabras) {
-    if (p.encontrada || encontradasLocales.has(p.id)) {
-      encontradasIds.add(p.id);
-    }
-  }
+  // Palabras encontradas en la SESIÓN (C-14): progreso efímero, solo en
+  // memoria. El `onPalabraEncontrada` del padre actualiza `estado.palabras`
+  // (encontrada + posicion) y este componente se repinta desde ahí.
+  const encontradasIds = idsEncontrados(estado.palabras);
 
   const candidatas: PalabraCandidata[] = estado.palabras.map((p) => ({
     id: p.id,
@@ -112,15 +59,14 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
     encontrada: encontradasIds.has(p.id),
   }));
 
-  // Celdas a resaltar como "encontradas": para registrados usamos la posición
-  // que devuelve el back; para invitados, la posición guardada en localStorage.
+  // Celdas a resaltar como "encontradas": usa la posición que devuelve la API
+  // (el padre la propaga a `estado.palabras[posicion]` al momento del hallazgo).
   const celdasEncontradas = new Set<string>();
   for (const p of estado.palabras) {
     if (!encontradasIds.has(p.id)) continue;
-    const posicion = p.posicion ?? encontradasLocales.get(p.id) ?? null;
-    if (posicion) {
+    if (p.posicion) {
       // `?? ""`: ver nota en `candidatas` (sopa nunca recibe null en runtime).
-      for (const c of obtenerCeldasDePalabra(posicion, (p.palabra ?? "").length)) {
+      for (const c of obtenerCeldasDePalabra(p.posicion, (p.palabra ?? "").length)) {
         celdasEncontradas.add(`${c.fila},${c.columna}`);
       }
     }
@@ -134,14 +80,9 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
         ? [seleccion.inicio]
         : [];
 
-
   /**
    * Determina qué celda de la grilla está bajo las coordenadas del viewport,
    * usando pura geometría (sin elementFromPoint, sin data-* attributes).
-   *
-   * La grilla usa CSS Grid con celdas de tamaño fijo (h-9/w-9 o sm:h-11/sm:w-11)
-   * y gap uniforme (gap-1 = 4px). Con el rect del grid y el tamaño de la
-   * primera celda, podemos mapear cualquier coordenada del viewport a una celda.
    */
   function celdaBajoCursor(clientX: number, clientY: number): Celda | null {
     const grid = contenedorRef.current?.querySelector('[role="grid"]');
@@ -208,20 +149,10 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
       }
       setError(null);
 
-      // Invitado: persisto el hallazgo en localStorage (el back no lo guarda).
-      if (esInvitado) {
-        const hallazgo = { id: deduccion.palabraId, posicion: resultado.posicion ?? null };
-        setProgresoLocal((prev) => {
-          if (prev.some((h) => h.id === hallazgo.id)) return prev;
-          const sig = [...prev, hallazgo];
-          guardarProgresoLocal(codigo, sig);
-          return sig;
-        });
-      }
-
-      // Registrado: propagamos la posición que devolvió el back para que la
-      // grilla resalte la palabra en vivo (el estado inicial la trae null
-      // hasta que este jugador la encuentra — anti-revelación, ver back).
+      // Propaga la posición que devolvió el back para que la grilla resalte la
+      // palabra en vivo (el estado inicial la trae null hasta que este jugador
+      // la encuentra — anti-revelación, ver back). C-14: el progreso es de la
+      // sesión en memoria; nada se persiste.
       onPalabraEncontrada?.(deduccion.palabraId, resultado.posicion);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo validar la selección.");
@@ -317,7 +248,7 @@ export function SopaGame({ codigo, estado, esInvitado = false, onPalabraEncontra
   const encontradas = encontradasIds.size;
 
   // Informamos el progreso real hacia la pantalla madre (para el contador y el
-  // banner "completaste"), incluyendo el progreso local del invitado.
+  // banner "completaste").
   useEffect(() => {
     onProgreso?.(encontradas, total);
   }, [encontradas, total, onProgreso]);

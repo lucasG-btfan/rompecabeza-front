@@ -1,10 +1,10 @@
 /**
  * Utilidades de tiempo para la UI (C-12, D2; C-13).
  *
- * `formatearTiempo` se extrajo del formateador local de la vieja pantalla de
- * ranking para compartirse con el cronómetro (`Cronometro.tsx`) y la pantalla
- * de completado de partida. El formato pasa de "1m 05s" a `mm:ss` (reloj de
- * carrera): al ser null-safe y puro, se puede testear de forma directa con vitest.
+ * `formatearTiempo` se comparte entre el cronómetro (`Cronometro.tsx`) y la
+ * pantalla de completado de partida. El formato pasa de "1m 05s" a `mm:ss`
+ * (reloj de carrera): al ser null-safe y puro, se puede testear de forma
+ * directa con vitest.
  */
 
 /**

@@ -68,11 +68,15 @@ export const partidasApi = {
   /** Estado actual para jugar (grilla + palabras, sin posiciones no encontradas). */
   obtenerEstado: (codigo: string) => api.get<EstadoPartida>(`/partidas/${codigo}/estado`),
 
-  /** Llama al entrar a jugar: arranca el cronómetro (funciona para invitados). */
+  /** Llama al entrar a jugar: valida que la partida esté activa (C-14: no
+   *  crea participación ni arranca cronómetro en el backend — el reloj y el
+   *  progreso viven 100% en la sesión del cliente). */
   unirsePartida: (codigo: string) =>
     api.post<UnirseOutput>(`/partidas/${codigo}/unirse`),
 
-  /** Marca una palabra como encontrada validando la selección (invitados también). */
+  /** Marca una palabra como encontrada validando la selección. C-14: el
+   * backend valida y responde la posición, pero NO persiste el hallazgo
+   * (el progreso es efímero, de la sesión). */
   marcarEncontrada: (codigo: string, palabraId: string, seleccion: MarcarEncontradaInput) =>
     api.put<MarcarEncontradaOutput>(
       `/partidas/${codigo}/palabras/${palabraId}/encontrada`,
@@ -90,4 +94,11 @@ export const partidasApi = {
 
   /** Elimina la partida permanentemente (solo creador). */
   eliminarPartida: (codigo: string) => api.delete<void>(`/partidas/${codigo}`),
+
+  /** Renombra la partida (C-15): asigna, modifica o limpia `nombre` (solo creador).
+   *  - `nombre` string → se guarda (trimeado por el backend, máx 50).
+   *  - `nombre: null` → limpia el nombre (vuelve a mostrarse el código).
+   *  Devuelve el `ResumenPartidaResponse` completo. */
+  renombrar: (codigo: string, nombre: string | null) =>
+    api.patch<ResumenPartida>(`/partidas/${codigo}/nombre`, { nombre }),
 };

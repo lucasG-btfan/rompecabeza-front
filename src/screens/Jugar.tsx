@@ -10,23 +10,6 @@ import { mensajeError } from "../utils/errores";
 import { formatearTiempo } from "../utils/tiempo";
 import type { EstadoPartida, Partida, Posicion } from "../types";
 
-// Cronómetro del invitado (C-12 D2): el timestamp propio se persiste entre
-// recargas con la misma clave que el progreso (localStorage, con copia en
-// memoria si está bloqueado — modo privado: el reloj arranca en 00:00).
-// A nivel módulo para que el effect no dependa de un closure inestable.
-function obtenerInicioInvitado(codigo: string): number {
-  const clave = `tiempo_inicio_${codigo}`;
-  try {
-    const guardado = window.localStorage.getItem(clave);
-    if (guardado) return Number(guardado);
-    const ahora = Date.now();
-    window.localStorage.setItem(clave, String(ahora));
-    return ahora;
-  } catch {
-    return Date.now();
-  }
-}
-
 export function Jugar() {
   const { codigo = "" } = useParams();
   const navigate = useNavigate();
@@ -62,23 +45,20 @@ export function Jugar() {
           return;
         }
 
-        // Partida activa: se une (arranca su cronómetro) y trae la partida
-        // pública (explicaciones de las palabras) en paralelo.
+        // Partida activa: se une y trae la partida pública (explicaciones de
+        // las palabras) en paralelo. C-14: el cronómetro es 100% de la sesión
+        // frontend (arranca acá, al unirse), no depende del backend.
         return Promise.all([
           partidasApi.unirsePartida(codigo),
           partidasApi.obtenerPartida(codigo),
-        ]).then(([unirse, partidaPublica]) => {
+        ]).then(([, partidaPublica]) => {
           if (!activo) return;
           setEstado(estadoPartida);
           setPartida(partidaPublica);
           setError(null);
-          // Cronómetro (C-12 D2): registrado → `iniciado_en` de su
-          // participación; invitado → timestamp propio persistido.
-          setInicio(
-            unirse.modo === "registrado"
-              ? Date.parse(unirse.iniciado_en ?? "") || Date.now()
-              : obtenerInicioInvitado(codigo),
-          );
+          // Cronómetro (C-14, D1): arranca en este mount. Salir y volver
+          // reinicia la partida completa (00:00 y sin palabras encontradas).
+          setInicio(Date.now());
         });
       })
       .catch((err) => {
@@ -130,10 +110,13 @@ export function Jugar() {
     return () => window.removeEventListener("beforeunload", manejarBeforeUnload);
   }, [hayPartidaEnCurso, completada]);
 
-  // D3 (C-13): salir confirmado = perder TODO. Para invitados se limpia el
-  // progreso de localStorage de esa partida (resuelve PA-05); los registrados
-  // quedan sin UI de retomar pero con la participación persistida. La limpieza
-  // es síncrona y corre ANTES de continuar la navegación bloqueada.
+  // D3 (C-13): salir confirmado = perder TODO. C-14 (progreso efímero): ya no
+  // se persiste progreso por jugador (ni backend ni localStorage), así que
+  // salir y volver reinicia la partida desde cero. El barrido de las claves
+  // legacy de localStorage queda como limpieza defensiva de datos viejos
+  // (registrados e invitados de antes de C-14); el juego no las vuelve a
+  // leer ni escribir. La limpieza es síncrona y corre ANTES de continuar la
+  // navegación bloqueada.
   function confirmarSalida() {
     try {
       window.localStorage.removeItem(`sopa_progreso_${codigo}`);
@@ -256,7 +239,6 @@ export function Jugar() {
         <SopaGame
           codigo={codigo}
           estado={estado}
-          esInvitado={esInvitado}
           onPalabraEncontrada={manejarPalabraEncontrada}
           onProgreso={(e, t) => {
             setEncontradas(e);
@@ -268,7 +250,6 @@ export function Jugar() {
           codigo={codigo}
           estado={estado}
           partida={partida}
-          esInvitado={esInvitado}
           onPalabraEncontrada={manejarPalabraEncontrada}
           onProgreso={(e, t) => {
             setEncontradas(e);

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { FiEdit2 } from "react-icons/fi";
 import { partidasApi } from "../api/partidas";
 import type { ResumenPartida } from "../types";
 
@@ -17,6 +18,36 @@ function estadoEtiqueta(estado: string): { texto: string; clase: string } {
 export function MisProyectos() {
   const [partidas, setPartidas] = useState<ResumenPartida[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editandoCodigo, setEditandoCodigo] = useState<string | null>(null);
+  const [textoNombre, setTextoNombre] = useState("");
+  const [errorRenombrar, setErrorRenombrar] = useState<string | null>(null);
+  // Guard para no disparar doble PATCH (Enter → blur) ni PATCH al cancelar con Escape
+  const blurEnCurso = useRef(false);
+
+  async function _guardarNombre(codigo: string, nombre: string | null) {
+    // optimista: capturar anterior para revertir
+    const anterior = partidas?.find((p) => p.codigo === codigo)?.nombre ?? null;
+    setPartidas(
+      (ps) =>
+        ps?.map((p) => (p.codigo === codigo ? { ...p, nombre } : p)) ?? null
+    );
+    setErrorRenombrar(null);
+    try {
+      let res = await partidasApi.renombrar(codigo, nombre);
+      setPartidas(
+        (ps) => ps?.map((p) => (p.codigo === codigo ? res : p)) ?? null
+      );
+    } catch (e) {
+      // revertir + error inline con auto-clear ~3s
+      setPartidas(
+        (ps) =>
+          ps?.map((p) => (p.codigo === codigo ? { ...p, nombre: anterior } : p)) ?? null
+      );
+      const msg = e instanceof Error ? e.message : "No se pudo renombrar.";
+      setErrorRenombrar(msg);
+      window.setTimeout(() => setErrorRenombrar((m) => (m === msg ? null : m)), 3000);
+    }
+  }
 
   useEffect(() => {
     partidasApi
@@ -55,17 +86,71 @@ export function MisProyectos() {
             return (
               <li
                 key={p.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-line bg-tile px-5 py-4 text-ink"
+                className="group flex items-center justify-between gap-4 rounded-lg border border-line bg-tile px-5 py-4 text-ink"
               >
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-lg font-semibold tracking-widest">
-                      {p.codigo}
-                    </span>
+                    {editandoCodigo === p.codigo ? (
+                      <input
+                        autoFocus
+                        value={textoNombre}
+                        onChange={(e) => setTextoNombre(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            blurEnCurso.current = true; // Enter → blur: evitar doble PATCH
+                            void _guardarNombre(p.codigo, textoNombre.trim() || null);
+                            setEditandoCodigo(null);
+                          } else if (e.key === "Escape") {
+                            blurEnCurso.current = true; // cancelar sin PATCH
+                            setEditandoCodigo(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (blurEnCurso.current) {
+                            blurEnCurso.current = false;
+                            return; // ya guardado o cancelado
+                          }
+                          void _guardarNombre(p.codigo, textoNombre.trim() || null);
+                          setEditandoCodigo(null);
+                        }}
+                        maxLength={50}
+                        className="w-48 rounded-md border border-line bg-tile px-2 py-1 font-mono text-lg text-ink focus:border-coral focus:outline-none"
+                        aria-label="Nombre de la partida"
+                      />
+                    ) : p.nombre ? (
+                      <span className="font-display text-lg text-ink">{p.nombre}</span>
+                    ) : (
+                      <span className="font-mono text-lg font-semibold tracking-widest">
+                        {p.codigo}
+                      </span>
+                    )}
+                    {p.nombre && (
+                      <span className="font-mono text-sm tracking-widest text-ink-soft">
+                        {p.codigo}
+                      </span>
+                    )}
                     <span className="text-xs uppercase tracking-wide text-ink-soft">
                       {p.tipo}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTextoNombre(p.nombre ?? "");
+                        setEditandoCodigo(p.codigo);
+                      }}
+                      className="opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100"
+                      aria-label="Renombrar partida"
+                      title="Renombrar"
+                    >
+                      <FiEdit2 className="text-sm text-ink-soft hover:text-coral" />
+                    </button>
                   </div>
+                  {errorRenombrar && (
+                    <p className="text-xs text-coral" role="alert">
+                      {errorRenombrar}
+                    </p>
+                  )}
                   <p className="text-sm text-ink-soft">
                     {p.palabras_encontradas} de {p.palabras_total} palabras
                   </p>

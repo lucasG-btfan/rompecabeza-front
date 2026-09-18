@@ -40,6 +40,8 @@ export interface EditorPartida {
   tipo: TipoPartida;
   estado: string;
   palabras: EditorPalabra[];
+  /** nombre: Optional[str] = None (read-only, C-15) — espejo de EditorPartidaResponse. */
+  nombre?: string | null;
 }
 
 /** Tipo de juego. Por ahora el backend solamente genera la grilla para 'sopa'. */
@@ -117,6 +119,9 @@ export interface CrearPartidaInput {
   tipo: TipoPartida;
   palabras: PalabraInput[];
   config?: Record<string, unknown> | null;
+  /** C-16: nombre opcional de la partida (max 50, solo creador). Null/ausente
+   *  = sin nombre (D13, espejo de `CrearPartidaRequest.nombre` backend). */
+  nombre?: string | null;
 }
 
 /** Respuesta de crear partida (CrearPartidaResponse). */
@@ -125,11 +130,13 @@ export interface CrearPartidaOutput {
   codigo: string;
   tipo: TipoPartida;
   estado: string;
+  /** C-16/D13: nombre opcional asignado por el creador (null = sin nombre). */
+  nombre?: string | null;
 }
 
 /** Vista pública de una partida (PartidaPublicaResponse) — sin posiciones no encontradas.
  *  `es_creador` (C-12, D1 REVISADO): true solo si el consultante autenticado es
- *  el creador — el front la usa para gatEAR la pantalla del editor (6.5). */
+ *  el creador — el front la usa para gatear la pantalla del editor (6.5). */
 export interface Partida {
   id: string;
   codigo: string;
@@ -139,6 +146,8 @@ export interface Partida {
   config: Record<string, unknown> | null;
   creado_en: string;
   es_creador: boolean;
+  /** C-15: nombre opcional asignado por el creador (read-only, null = sin nombre). */
+  nombre?: string | null;
 }
 
 /** Resumen para la lista "Mis partidas" (ResumenPartidaResponse — agregado en el backend). */
@@ -150,6 +159,8 @@ export interface ResumenPartida {
   creado_en: string;
   palabras_total: number;
   palabras_encontradas: number;
+  /** C-15: nombre opcional asignado por el creador (null = sin nombre). */
+  nombre?: string | null;
 }
 
 /** Palabra con su estado en el juego (EstadoPalabraResponse). */
@@ -209,8 +220,8 @@ export interface MarcarEncontradaOutput {
   posicion?: Posicion | null;
 }
 
-/** Respuesta de unirse a una partida (UnirseResponse). */
+/** Respuesta de unirse a una partida (UnirseResponse). C-14: sin `iniciado_en`
+ * (el cronómetro arranca en el cliente al montar la pantalla de juego). */
 export interface UnirseOutput {
   modo: "registrado" | "invitado";
-  iniciado_en?: string | null;
 }

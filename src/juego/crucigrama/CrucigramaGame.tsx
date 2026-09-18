@@ -19,7 +19,6 @@ export interface CrucigramaGameProps {
   estado: EstadoPartida;
   /** Vista pública de la partida: pistas (explicacion) numeradas. */
   partida?: Partida | null;
-  esInvitado?: boolean;
   onPalabraEncontrada?: (palabraId: string) => void;
   onProgreso?: (encontradas: number, total: number) => void;
 }
@@ -28,11 +27,10 @@ export function CrucigramaGame({
   codigo,
   estado,
   partida,
-  esInvitado = false,
   onPalabraEncontrada,
   onProgreso,
 }: CrucigramaGameProps) {
-  const juego = useCrucigramaJuego({ codigo, estado, esInvitado, onPalabraEncontrada, onProgreso });
+  const juego = useCrucigramaJuego({ codigo, estado, onPalabraEncontrada, onProgreso });
 
   // Celdas de la palabra recién encontrada (C-12/D4): el hook expone el NUMERO
   // (`palabraResaltada`); acá se resuelve a claves "fila,columna" con la

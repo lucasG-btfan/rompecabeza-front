@@ -19,7 +19,6 @@
 
 import { describe, expect, it } from "vitest";
 import type {
-  EstadoPalabra,
   GrillaCrucigrama,
   PalabraGrilla,
 } from "../../types";
@@ -29,7 +28,6 @@ import {
   celdasDeEncontradas,
   celdasDePalabraGrilla,
   describirCelda,
-  idsEncontrados,
   indiceTrasBorrado,
   palabraEnCelda,
   respuestaDePalabra,
@@ -190,22 +188,6 @@ describe("siguienteCeldaVacia", () => {
       ["0,3", "O"],
     ]);
     expect(siguienteCeldaVacia(celdasPato, mapa, 3)).toBeNull();
-  });
-});
-
-describe("idsEncontrados", () => {
-  it("une las encontradas del backend con las del localStorage (invitado)", () => {
-    const estadoPalabras: EstadoPalabra[] = [
-      { id: "a", palabra: null, encontrada: true },
-      { id: "b", palabra: null, encontrada: false },
-      { id: "c", palabra: null, encontrada: false },
-    ];
-    const locales = [{ id: "c" as string, posicion: null, letras: "PATO" }];
-
-    const ids = idsEncontrados(estadoPalabras, locales);
-    expect(ids.has("a")).toBe(true);
-    expect(ids.has("b")).toBe(false);
-    expect(ids.has("c")).toBe(true); // solo la local
   });
 });
 

@@ -12,7 +12,6 @@
  */
 
 import type {
-  EstadoPalabra,
   GrillaCrucigrama,
   OrientacionCrucigrama,
   PalabraGrilla,
@@ -223,20 +222,6 @@ export function siguienteCeldaVacia(
     }
   }
   return null;
-}
-
-/** IDs de palabras encontradas por ESTE jugador: las del backend (registrado)
- * más las del localStorage (invitado). */
-export function idsEncontrados(
-  estadoPalabras: EstadoPalabra[],
-  locales: { id: string }[],
-): Set<string> {
-  const ids = new Set<string>();
-  for (const p of estadoPalabras) {
-    if (p.encontrada) ids.add(p.id);
-  }
-  for (const h of locales) ids.add(h.id);
-  return ids;
 }
 
 /** Celdas "fila,col" a pintar como encontradas, dadas las pistas (numeros)
