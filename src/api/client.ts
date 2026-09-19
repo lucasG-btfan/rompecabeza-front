@@ -1,4 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+// Opción A (C-17 deploy): en producción la API se sirve por la MISMA origin
+// vía el rewrite /api/* de vercel.json → la cookie de sesión es first-party y
+// funciona aunque el navegador bloquee third-party cookies. En desarrollo
+// local seguimos apuntando al backend local (VITE_API_URL o fallback).
+const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:8000/api");
 
 export class ApiError extends Error {
   status: number;
