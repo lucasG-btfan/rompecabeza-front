@@ -10,12 +10,18 @@ import {
 } from "./logica";
 import { partidasApi } from "../../api/partidas";
 import { idsEncontrados } from "../compartido/progreso";
-import type { EstadoPartida, Posicion } from "../../types";
+import type { EstadoPartida, Posicion, ResultadoDuelo } from "../../types";
 
 interface SopaGameProps {
   codigo: string;
   estado: EstadoPartida;
-  onPalabraEncontrada?: (palabraId: string, posicion?: Posicion | null) => void;
+  /** C-19 (D3/D5): el tercer parámetro propaga el `duelo_finalizado` de la
+   *  respuesta al container (la jugada que corta muestra el resultado ya). */
+  onPalabraEncontrada?: (
+    palabraId: string,
+    posicion?: Posicion | null,
+    dueloFinalizado?: ResultadoDuelo | null,
+  ) => void;
   onProgreso?: (encontradas: number, total: number) => void;
 }
 
@@ -152,8 +158,13 @@ export function SopaGame({ codigo, estado, onPalabraEncontrada, onProgreso }: So
       // Propaga la posición que devolvió el back para que la grilla resalte la
       // palabra en vivo (el estado inicial la trae null hasta que este jugador
       // la encuentra — anti-revelación, ver back). C-14: el progreso es de la
-      // sesión en memoria; nada se persiste.
-      onPalabraEncontrada?.(deduccion.palabraId, resultado.posicion);
+      // sesión en memoria; nada se persiste. C-19: si la jugada cortó el duelo
+      // adjunta `duelo_finalizado` (D5) — el container lo muestra al toque.
+      onPalabraEncontrada?.(
+        deduccion.palabraId,
+        resultado.posicion,
+        resultado.duelo_finalizado ?? null,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo validar la selección.");
     } finally {

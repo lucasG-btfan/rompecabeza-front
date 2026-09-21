@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
+import { emparejamientosApi } from "../api/emparejamientos";
 import { partidasApi } from "../api/partidas";
+import { useDuelo } from "../hooks/useDuelo";
+import { ConfirmarAbandono } from "../juego/duelo/ConfirmarAbandono";
+import { MarcadorDuelo } from "../juego/duelo/MarcadorDuelo";
+import { ResultadoDuelo as PantallaResultadoDuelo } from "../juego/duelo/ResultadoDuelo";
 import { ConfirmarSalida } from "../juego/compartido/ConfirmarSalida";
 import { Cronometro } from "../juego/compartido/Cronometro";
 import { SopaGame } from "../juego/sopa/SopaGame";
@@ -8,13 +13,18 @@ import { CrucigramaGame } from "../juego/crucigrama/CrucigramaGame";
 import { useAuth } from "../store/auth";
 import { mensajeError } from "../utils/errores";
 import { formatearTiempo } from "../utils/tiempo";
-import type { EstadoPartida, Partida, Posicion } from "../types";
+import type { EstadoPartida, Partida, Posicion, ResultadoDuelo } from "../types";
 
 export function Jugar() {
   const { codigo = "" } = useParams();
   const navigate = useNavigate();
-  const { modo } = useAuth();
+  const { modo, usuario } = useAuth();
   const esInvitado = modo !== "logueado";
+  const username = usuario?.username ?? "Invitado";
+
+  // C-19 (D10): hook del cierre del duelo 1v1 — poll 3s de
+  // GET /emparejamientos/estado, terminación síncrona por jugada/abandono.
+  const duelo = useDuelo();
 
   const [estado, setEstado] = useState<EstadoPartida | null>(null);
   const [partida, setPartida] = useState<Partida | null>(null);
@@ -26,6 +36,10 @@ export function Jugar() {
   const [inicio, setInicio] = useState<number | null>(null);
   /** Tiempo final en ms capturado al completar (C-13 D2): el reloj se congela. */
   const [tiempoFinalMs, setTiempoFinalMs] = useState<number | null>(null);
+  /** C-19: true si el unirse disparó auto-match 1v1 (UnirseResponse.emparejado). */
+  const [enDuelo, setEnDuelo] = useState(false);
+  /** C-19 (D12): modal de confirmación del abandono. */
+  const [confirmarAbandonoAbierto, setConfirmarAbandonoAbierto] = useState(false);
 
   useEffect(() => {
     let activo = true;
@@ -51,11 +65,16 @@ export function Jugar() {
         return Promise.all([
           partidasApi.unirsePartida(codigo),
           partidasApi.obtenerPartida(codigo),
-        ]).then(([, partidaPublica]) => {
+        ]).then(([unirse, partidaPublica]) => {
           if (!activo) return;
           setEstado(estadoPartida);
           setPartida(partidaPublica);
           setError(null);
+          // C-19 (D9): si el unirse disparó auto-match 1v1, enciende el poll
+          // del duelo (el cierre llega por estado finalizado o por la propia
+          // jugada que corta, D10).
+          setEnDuelo(unirse.emparejado);
+          if (unirse.emparejado) duelo.arrancar(codigo);
           // Cronómetro (C-14, D1): arranca en este mount. Salir y volver
           // reinicia la partida completa (00:00 y sin palabras encontradas).
           setInicio(Date.now());
@@ -77,8 +96,10 @@ export function Jugar() {
   }, [codigo]);
 
   /** Hay una partida activa cargada: única situación donde tiene sentido
-   * bloquear la salida (hay progreso que perder). */
-  const hayPartidaEnCurso = estado?.estado === "activo";
+   * bloquear la salida (hay progreso que perder). C-19 (D11): el resultado
+   * del duelo manda sobre la sesión — al finalizar ya no se bloquea. */
+  const hayResultado = duelo.resultado != null;
+  const hayPartidaEnCurso = estado?.estado === "activo" && !hayResultado;
   const completada = total > 0 && encontradas === total;
   /** Nombre del juego con artículo para el mensaje de completado (D4):
    * "la sopa" (femenino) / "el crucigrama" (masculino). */
@@ -131,7 +152,15 @@ export function Jugar() {
   function manejarPalabraEncontrada(
     palabraId: string,
     posicion?: Posicion | null,
+    dueloFinalizado?: ResultadoDuelo | null,
   ) {
+    // C-19 (D3/D5): la jugada que corta el duelo (última palabra) trae el
+    // resultado en la misma respuesta → terminación SÍNCRONA (D10), sin
+    // esperar al poll. C-22 (D6): el `&& enDuelo` es defensa en profundidad —
+    // un `duelo_finalizado` que llega sin duelo activo en esta sesión (p. ej.
+    // el fantasma de un duelo viejo en solitario) se IGNORA y el juego sigue.
+    if (dueloFinalizado && enDuelo) duelo.finalizar(dueloFinalizado);
+
     setEstado((prev) => {
       if (!prev) return prev;
       return {
@@ -143,6 +172,30 @@ export function Jugar() {
         ),
       };
     });
+  }
+
+  // C-19: el crucigrama (hook useCrucigramaJuego) no maneja posiciones de
+  // selección (su jugada es responder la palabra activa): la firma de su
+  // callback solo lleva el duelo_finalizado. Se delega al handler común.
+  function manejarPalabraCrucigramaEncontrada(
+    palabraId: string,
+    dueloFinalizado?: ResultadoDuelo | null,
+  ) {
+    manejarPalabraEncontrada(palabraId, null, dueloFinalizado);
+  }
+
+  // C-19 (D4/D12): abandono = forfeit. Confirmado el modal, se llama al
+  // backend; el resultado (gane: false) se muestra con la terminación
+  // síncrona. Un error de red NO pierde el estado del juego: se avisa y el
+  // duelo sigue.
+  async function confirmarAbandonar() {
+    setConfirmarAbandonoAbierto(false);
+    try {
+      const res = await emparejamientosApi.abandonar(codigo);
+      duelo.finalizar(res);
+    } catch (e) {
+      setError(mensajeError(e instanceof Error ? e : null));
+    }
   }
 
   if (cargando) {
@@ -173,6 +226,16 @@ export function Jugar() {
         />
       )}
 
+      {/* C-19 (D12): confirmación del abandono — "Sí, abandonar" da el
+          forfeit (el rival gana); "Seguir jugando" cierra el modal. */}
+      {confirmarAbandonoAbierto && (
+        <ConfirmarAbandono
+          rival={duelo.rival}
+          onConfirmar={confirmarAbandonar}
+          onCancelar={() => setConfirmarAbandonoAbierto(false)}
+        />
+      )}
+
       <div className="flex w-full items-center justify-between">
         <div className="flex items-baseline gap-3">
           <Link to="/" className="text-sm text-ink-soft hover:text-ink">
@@ -188,10 +251,32 @@ export function Jugar() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {inicio != null && !completada && (
+          {/* C-19 (D4): el abandono del duelo 1v1 solo existe con duelo activo
+              y sin resultado (ya terminó → no hay nada que abandonar). */}
+          {enDuelo && duelo.estado === "activo" && !hayResultado && (
+            <button
+              onClick={() => setConfirmarAbandonoAbierto(true)}
+              className="rounded-full border border-coral/50 px-3 py-1 text-xs font-semibold text-coral transition-colors hover:bg-coral hover:text-white"
+            >
+              Abandonar duelo
+            </button>
+          )}
+          {inicio != null && !completada && !hayResultado && (
             <span className="rounded-full bg-tile px-3 py-1 font-mono text-xs font-semibold tabular-nums text-ink-soft">
               <Cronometro desde={inicio} />
             </span>
+          )}
+          {/* C-19 (AMEND CAMBIO 2): marcador visible del duelo "[J1] n/m
+              [J2] n/m". n propio = sesión local (al toque); n rival = backend
+              por poll (hasta 3 s de desfase, D10). Solo con duelo en curso. */}
+          {enDuelo && duelo.estado === "activo" && !hayResultado && total > 0 && (
+            <MarcadorDuelo
+              nombrePropio={username}
+              nombreRival={duelo.rival}
+              propio={encontradas}
+              rival={duelo.rivalContador ?? 0}
+              total={total}
+            />
           )}
           <span className="rounded-full bg-tile px-3 py-1 text-xs font-semibold text-ink">
             {encontradas}/{total || 0}
@@ -205,7 +290,22 @@ export function Jugar() {
         </div>
       </div>
 
-      {completada ? (
+      {/* Error de acciones del duelo (p. ej. red caída al abandonar): se avisa
+          sin perder el estado del juego. El resto de errores de carga se
+          manejan en el branch de partida no activa, arriba. */}
+      {error && <p className="text-center text-sm text-coral">{error}</p>}
+
+      {/* C-19 (D11): el resultado del duelo manda sobre la sesión — se muestra
+          en lugar del tablero/cronómetro (misma mecánica que `completada`). */}
+      {duelo.resultado != null ? (
+        <PantallaResultadoDuelo
+          resultado={duelo.resultado}
+          username={username}
+          tipo={estado.tipo}
+          partida={partida}
+          onVolverInicio={() => navigate("/")}
+        />
+      ) : completada ? (
         <div className="animate-win-pop flex w-full flex-col items-center gap-4 rounded-lg border border-amber bg-tile p-8 text-center text-ink">
           <p className="font-display text-2xl">
             ¡Completaste {nombreJuego} en{" "}
@@ -250,7 +350,7 @@ export function Jugar() {
           codigo={codigo}
           estado={estado}
           partida={partida}
-          onPalabraEncontrada={manejarPalabraEncontrada}
+          onPalabraEncontrada={manejarPalabraCrucigramaEncontrada}
           onProgreso={(e, t) => {
             setEncontradas(e);
             setTotal(t);

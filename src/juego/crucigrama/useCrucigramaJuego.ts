@@ -5,8 +5,10 @@ import { partidasApi } from "../../api/partidas";
 import type {
   EstadoPartida,
   GrillaCrucigrama,
+  MarcarEncontradaOutput,
   OrientacionCrucigrama,
   PalabraGrilla,
+  ResultadoDuelo,
 } from "../../types";
 import { idsEncontrados } from "../compartido/progreso";
 import {
@@ -17,6 +19,16 @@ import {
   respuestaDePalabra,
   type CeldaTablero,
 } from "./logica";
+import {
+  clavePista,
+  fusionarPistas,
+  idsCandidatos,
+  resolverIdPorValidacion,
+  resolverPistas,
+  type ClavePista,
+  type PistasResueltas,
+  type ResultadoPruebaCandidato,
+} from "./pistas";
 import { claveCelda, useCrucigramaTeclado } from "./useCrucigramaTeclado";
 
 /**
@@ -24,23 +36,35 @@ import { claveCelda, useCrucigramaTeclado } from "./useCrucigramaTeclado";
  * mecánica del juego. Extraído de `CrucigramaGame` para separar estado de la
  * presentación (`TableroCrucigrama`, `PanelPistas`, container).
  *
- * C-14 (progreso efímero): el progreso vive SOLO en memoria de la sesión.
- * No hay persistencia por jugador (ni backend ni localStorage): al salir y
- * volver, la partida arranca de cero. `encontradasIds` se deriva del estado
- * que trae el backend (`estado.palabras.encontrada`).
+ * C-14 (progreso efímero): el progreso vive SOLO en memoria de la sesión
+ * (sin backend ni localStorage); `encontradasIds` se deriva de
+ * `estado.palabras.encontrada`.
+ *
+ * c-21 (pistas por palabra): el viejo `idPorNumero: Map<number, string>`
+ * pisaba una de las dos palabras de un par colisionante H+V con el mismo
+ * inicio (mismo numero de pista). Ahora las pistas se resuelven por clave
+ * `(numero, orientacion)` en DOS planos (D2):
+ *   - ESTÁTICO: `resolverPistas` — por `posicion.orientacion` (cuando viaja)
+ *     o por exclusión cuando el número es único en la grilla;
+ *   - DINÁMICO (solo pares colisionantes): la primera validación prueba los
+ *     candidatos (máx 2 llamadas) y cachea el acierto + el descarte del par,
+ *     con lo que ambas palabras quedan resueltas para el resto de la sesión.
  *
  * Maneja la palabra activa, el foco, la validación automática al completar
  * una palabra vía `responderPalabra` (D1) y el highlight de la palabra recién
- * encontrada. La entrada de teclado/tipeo (Backspace, flechas, Tab, cambio de
- * celda) vive en `useCrucigramaTeclado` (C-14, D9).
- *
- * La lógica pura (testeada con vitest) vive en `logica.ts` y `compartido/progreso.ts`.
+ * encontrada. La entrada de teclado/tipeo (Backspace, flechas, Tab) vive en
+ * `useCrucigramaTeclado` (C-14, D9); la lógica pura, en `logica.ts` + `pistas.ts`.
  */
 
 export interface UseCrucigramaJuegoProps {
   codigo: string;
   estado: EstadoPartida;
-  onPalabraEncontrada?: (palabraId: string) => void;
+  /** C-19 (D3/D5): el segundo parámetro propaga el `duelo_finalizado` de la
+   *  respuesta al container (la jugada que corta muestra el resultado ya). */
+  onPalabraEncontrada?: (
+    palabraId: string,
+    dueloFinalizado?: ResultadoDuelo | null,
+  ) => void;
   onProgreso?: (encontradas: number, total: number) => void;
 }
 
@@ -59,10 +83,13 @@ export interface CrucigramaJuego {
   celdasEncontradas: Set<string>;
   celdasError: Set<string>;
   celdaFoco: { fila: number; columna: number } | null;
-  /** Número de pista de la palabra recién encontrada (highlight temporal,
-   *  C-12/D4): anima sus celdas ~800ms antes de quedar fijadas. */
-  palabraResaltada: number | null;
-  idPorNumero: Map<number, string>;
+  /** Clave (numero, orientacion) de la palabra recién encontrada (highlight
+   *  temporal, C-12/D4): anima sus celdas ~800ms antes de quedar fijadas.
+   *  c-21: clave en vez de numero porque un par colisionante comparte numero. */
+  palabraResaltada: ClavePista | null;
+  /** Pistas resueltas c-21 (D2): puente (numero, orientacion) -> id ESTÁTICO
+   *  + caché dinámica de la sesión (pares colisionantes resueltos). */
+  pistas: PistasResueltas;
   encontradasIds: Set<string>;
   error: string | null;
   activarPalabra: (palabra: PalabraGrilla) => void;
@@ -90,7 +117,7 @@ export function useCrucigramaJuego({
   const [celdaFoco, setCeldaFoco] = useState<CeldaRef | null>(null);
   const [letras, setLetras] = useState<Map<string, string>>(new Map());
   const [celdasError, setCeldasError] = useState<Set<string>>(new Set());
-  const [palabraResaltada, setPalabraResaltada] = useState<number | null>(null);
+  const [palabraResaltada, setPalabraResaltada] = useState<ClavePista | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   // Espejo sincrónico de `letras` para decisiones en handlers (el estado de
@@ -108,16 +135,21 @@ export function useCrucigramaJuego({
     [codigo],
   );
 
-  // Mapeo numero <-> id (las pistas de la grilla D6 se identifican por numero;
-  // el backend no expone el id en la grilla, pero `EstadoPalabra.numero` las
-  // vincula — D3).
-  const idPorNumero = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const p of estado.palabras) {
-      if (p.numero != null) m.set(p.numero, p.id);
+  // Pistas c-21 (D2): armado ESTÁTICO + caché DINÁMICA de la sesión.
+  const [cachePistas, setCachePistas] = useState<Map<ClavePista, string>>(new Map());
+
+  // Fusión (pistas.ts): las resoluciones dinámicas de la sesión ganan a las
+  // estáticas y el par ya resuelto deja de estar pendiente/marcado.
+  const pistas = useMemo((): PistasResueltas => {
+    if (!grilla) {
+      return {
+        porClave: new Map(),
+        pendientes: new Map(),
+        colisiones: new Set(),
+      };
     }
-    return m;
-  }, [estado.palabras]);
+    return fusionarPistas(resolverPistas(grilla, estado), cachePistas);
+  }, [grilla, estado, cachePistas]);
 
   // IDs encontrados en la SESIÓN (C-14): progreso efímero, solo en memoria.
   const encontradasIds = useMemo(
@@ -125,18 +157,22 @@ export function useCrucigramaJuego({
     [estado.palabras],
   );
 
-  // Numeros de pista encontrados: repintan las celdas de la grilla D6.
-  const numerosEncontrados = useMemo(() => {
-    const set = new Set<number>();
-    for (const [numero, id] of idPorNumero) {
-      if (encontradasIds.has(id)) set.add(numero);
+  // Claves (numero, orientacion) de las palabras encontradas (c-21 D2, per-word):
+  // un par colisionante H+V se pinta de a UNA palabra, nunca las dos juntas.
+  const clavesEncontradas = useMemo(() => {
+    const set = new Set<ClavePista>();
+    if (!grilla) return set;
+    for (const w of grilla.palabras) {
+      if (idsCandidatos(pistas, w).some((id) => encontradasIds.has(id))) {
+        set.add(clavePista(w.numero, w.orientacion));
+      }
     }
     return set;
-  }, [idPorNumero, encontradasIds]);
+  }, [grilla, pistas, encontradasIds]);
 
   const celdasEncontradas = useMemo(
-    () => (grilla ? celdasDeEncontradas(grilla.palabras, numerosEncontrados) : new Set<string>()),
-    [grilla, numerosEncontrados],
+    () => (grilla ? celdasDeEncontradas(grilla.palabras, clavesEncontradas) : new Set<string>()),
+    [grilla, clavesEncontradas],
   );
 
   // Celdas que pertenecen a la palabra activa (editable + borde visible).
@@ -155,8 +191,10 @@ export function useCrucigramaJuego({
 
   /** Activa una palabra de la grilla (bloqueada si ya está encontrada). */
   function activarPalabra(palabra: PalabraGrilla) {
-    const id = idPorNumero.get(palabra.numero);
-    if (id && encontradasIds.has(id)) return; // encontrada: no se edita
+    const ids = idsCandidatos(pistas, palabra);
+    if (ids.length > 0 && ids.some((id) => encontradasIds.has(id))) {
+      return; // encontrada: no se edita
+    }
     setPalabraActiva(palabra);
     setError(null);
     setCeldasError(new Set());
@@ -197,12 +235,14 @@ export function useCrucigramaJuego({
     // cruce con una no encontrada, activamos la del cruce.
     const palabra = palabraEnCelda(grilla, fila, columna, "H");
     if (palabra) {
-      const id = idPorNumero.get(palabra.numero);
-      if (id && encontradasIds.has(id)) {
+      const ids = idsCandidatos(pistas, palabra);
+      const encontrada = ids.length > 0 && ids.some((id) => encontradasIds.has(id));
+      if (encontrada) {
         const otra = palabraEnCelda(grilla, fila, columna, "V");
         if (otra && otra.numero !== palabra.numero) {
-          const idOtra = idPorNumero.get(otra.numero);
-          if (!idOtra || !encontradasIds.has(idOtra)) {
+          const idsOtra = idsCandidatos(pistas, otra);
+          const encontradaOtra = idsOtra.some((id) => encontradasIds.has(id));
+          if (idsOtra.length === 0 || !encontradaOtra) {
             activarPalabra(otra);
             setCeldaFoco(celda);
           }
@@ -216,35 +256,46 @@ export function useCrucigramaJuego({
     }
   }
 
-  /** Valida la palabra activa contra el backend (D1). */
+  /** Valida la palabra activa contra el backend (D1, c-21 D2.2). */
   async function validar(palabra: PalabraGrilla, mapa: Map<string, string>) {
     if (enviando) return;
     const texto = respuestaDePalabra(palabra, mapa);
     if (!texto) return;
-    const id = idPorNumero.get(palabra.numero);
-    if (!id) return;
+    const candidatos = idsCandidatos(pistas, palabra);
+    if (candidatos.length === 0) return; // sin señal estática: nada que validar
 
     setEnviando(true);
     setError(null);
     try {
-      const resultado = await partidasApi.responderPalabra(codigo, id, texto);
-      if (resultado.encontrada) {
-        onPalabraEncontrada?.(id);
-        // Highlight temporal de la palabra recién encontrada (C-12/D4): anima
-        // sus celdas ~800ms antes de quedar fijadas como encontradas.
-        setPalabraResaltada(palabra.numero);
-        if (timeoutHighlightRef.current != null) window.clearTimeout(timeoutHighlightRef.current);
-        timeoutHighlightRef.current = window.setTimeout(() => {
-          setPalabraResaltada(null);
-          timeoutHighlightRef.current = null;
-        }, 800);
-        // Letras quedan fijas (bloqueadas): la palabra pasa a pintarse como
-        // encontrada y se deselecciona.
-        setPalabraActiva(null);
-        setCeldaFoco(null);
+      // Resultado completo de la llamada que acierta (propaga duelo_finalizado,
+      // C-19): el probe devuelve solo la clasificación; acá guardamos el
+      // detalle. Contenedor mutable (no `let` capturado: TS lo narra como
+      // `never` tras el await y rompe el acceso a `duelo_finalizado`).
+      const aciertoRef: { resultado: MarcarEncontradaOutput | null } = { resultado: null };
+      const probar = async (id: string): Promise<ResultadoPruebaCandidato> => {
+        try {
+          const resultado = await partidasApi.responderPalabra(codigo, id, texto);
+          if (resultado.encontrada) {
+            aciertoRef.resultado = resultado;
+            return { id, resultado: "acierto" };
+          }
+          return { id, resultado: "error" };
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 400) {
+            return { id, resultado: "letrasIncorrectas" };
+          }
+          return { id, resultado: "error" };
+        }
+      };
+
+      const decision = await resolverIdPorValidacion(candidatos, probar);
+
+      if (decision.tipo === "error") {
+        setError("No se pudo validar la palabra.");
+        return;
       }
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 400) {
+
+      if (decision.tipo === "letrasIncorrectas") {
         // Letras incorrectas: limpiamos SOLO esta palabra, flasheamos sus
         // celdas en coral (estado de error) y re-enfocamos.
         const celdas = celdasDePalabraGrilla(palabra);
@@ -263,9 +314,43 @@ export function useCrucigramaJuego({
         }, 800);
         setError("Letras incorrectas: limpié la palabra, probá de nuevo.");
         setCeldaFoco(celdas[0] ?? null);
-      } else {
-        setError(e instanceof Error ? e.message : "No se pudo validar la palabra.");
+        return;
       }
+
+      // ACIERTO: el id ganador + (si fue un par, D2.2) cachear en la sesión
+      // la resolución dinámica: el ganador bajo la clave de ESTA palabra y los
+      // descartados bajo las claves de las hermanas del par (mismo numero,
+      // orientacion opuesta) — la exclusión queda resuelta para siempre.
+      const id = decision.id;
+      if (decision.cachear && grilla) {
+        setCachePistas((prev) => {
+          const m = new Map(prev);
+          m.set(clavePista(palabra.numero, palabra.orientacion), id);
+          for (const descartado of decision.descartados) {
+            const hermana = grilla.palabras.find(
+              (w) =>
+                w.numero === palabra.numero &&
+                w.orientacion !== palabra.orientacion &&
+                !m.has(clavePista(w.numero, w.orientacion)),
+            );
+            if (hermana) m.set(clavePista(hermana.numero, hermana.orientacion), descartado);
+          }
+          return m;
+        });
+      }
+      onPalabraEncontrada?.(id, aciertoRef.resultado?.duelo_finalizado ?? null);
+      // Highlight temporal de la palabra recién encontrada (C-12/D4): anima
+      // sus celdas ~800ms antes de quedar fijadas como encontradas.
+      setPalabraResaltada(clavePista(palabra.numero, palabra.orientacion));
+      if (timeoutHighlightRef.current != null) window.clearTimeout(timeoutHighlightRef.current);
+      timeoutHighlightRef.current = window.setTimeout(() => {
+        setPalabraResaltada(null);
+        timeoutHighlightRef.current = null;
+      }, 800);
+      // Letras quedan fijas (bloqueadas): la palabra pasa a pintarse como
+      // encontrada y se deselecciona.
+      setPalabraActiva(null);
+      setCeldaFoco(null);
     } finally {
       setEnviando(false);
     }
@@ -283,7 +368,7 @@ export function useCrucigramaJuego({
       letrasRef,
       enviando,
       encontradasIds,
-      idPorNumero,
+      pistas,
     },
     {
       activarPalabra,
@@ -302,7 +387,7 @@ export function useCrucigramaJuego({
     celdasError,
     celdaFoco,
     palabraResaltada,
-    idPorNumero,
+    pistas,
     encontradasIds,
     error,
     activarPalabra,

@@ -220,6 +220,9 @@ export interface MarcarEncontradaInput {
 export interface MarcarEncontradaOutput {
   encontrada: boolean;
   posicion?: Posicion | null;
+  /** C-19: resultado del duelo 1v1 si la jugada cortó el duelo (última
+   * palabra, D5). null/ausente en jugadas normales. */
+  duelo_finalizado?: ResultadoDuelo | null;
 }
 
 /** Respuesta de unirse a una partida (UnirseResponse). C-14: sin `iniciado_en`
@@ -228,4 +231,18 @@ export interface MarcarEncontradaOutput {
 export interface UnirseOutput {
   modo: "registrado" | "invitado";
   emparejado: boolean;
+}
+
+/** Resultado del duelo 1v1 (C-19, DueloResultadoResponse) — espejo del
+ * backend, normalizado por requester: `yo_palabras`/`rival_palabras` son
+ * relativos a quien consulta; `gane` es true/false para él o null si el duelo
+ * terminó en empate. `tiempo_total_seg` = iniciado_en → finalizado_en. */
+export interface ResultadoDuelo {
+  yo_palabras: number;
+  rival_palabras: number;
+  gane: boolean | null;
+  /** Username del otro jugador del duelo. */
+  rival: string | null;
+  tiempo_total_seg: number;
+  finalizado_en?: string | null;
 }

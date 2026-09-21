@@ -3,7 +3,7 @@
  * app/schemas/emparejamiento.py del backend.
  */
 
-import type { TipoPartida } from "./partidas";
+import type { ResultadoDuelo, TipoPartida } from "./partidas";
 
 /** Ítem del listado público anti-cheat (PartidaLobbyResponse): solo metadatos,
  *  NUNCA palabras, posiciones, grilla ni explicaciones. */
@@ -18,17 +18,21 @@ export interface PartidaLobby {
 }
 
 /** Estados posibles de un emparejamiento 1v1 (union type — no enum: el
- *  tsconfig de Vite usa `erasableSyntaxOnly`). */
+ *  tsconfig de Vite usa `erasableSyntaxOnly`). C-19: `finalizado` es ESTABLE
+ *  (D6): trae `resultado` y nunca se consume como cancelado/expirado. */
 export type EmparejamientoEstado =
   | "esperando"
   | "emparejado"
   | "cancelado"
   | "expirado"
+  | "finalizado"
   | null;
 
 /** Respuesta del POST /emparejamientos y del poll GET /emparejamientos/estado
  *  (EmparejamientoEstadoResponse). `partida`/`rival` solo presentes según el
- *  estado; `cancelado`/`expirado` se reportan UNA vez (luego → null). */
+ *  estado; `cancelado`/`expirado` se reportan UNA vez (luego → null).
+ *  AMEND CAMBIO 2: `yo_palabras`/`rival_palabras` (solo si `emparejado`)
+ *  son los contadores n/m normalizados por requester para el marcador. */
 export interface EmparejamientoEstadoOutput {
   estado: EmparejamientoEstado;
   partida?: PartidaLobby | null;
@@ -36,4 +40,10 @@ export interface EmparejamientoEstadoOutput {
   rival?: string | null;
   creado_en?: string | null;
   emparejado_en?: string | null;
+  /** Contador propio del duelo (solo si `emparejado`). */
+  yo_palabras?: number | null;
+  /** Contador del rival del duelo (solo si `emparejado`). */
+  rival_palabras?: number | null;
+  /** C-19: resultado del duelo (solo si `estado === "finalizado"`, D5). */
+  resultado?: ResultadoDuelo | null;
 }

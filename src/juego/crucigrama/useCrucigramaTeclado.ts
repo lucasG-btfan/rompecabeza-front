@@ -14,6 +14,7 @@ import {
   type CeldaTablero,
   type FlechaTeclado,
 } from "./logica";
+import { idsCandidatos, type PistasResueltas } from "./pistas";
 
 /**
  * Mecánica de ENTRADA del crucigrama jugable (C-14, D9): Backspace con
@@ -47,7 +48,8 @@ export interface DependenciasTeclado {
   letrasRef: MutableRefObject<Map<string, string>>;
   enviando: boolean;
   encontradasIds: Set<string>;
-  idPorNumero: Map<number, string>;
+  /** Pistas c-21 (D2): resolución (numero, orientacion) -> id/estado. */
+  pistas: PistasResueltas;
 }
 
 /** Muta estados del padre y le avisa para validar contra el backend. */
@@ -75,7 +77,7 @@ export function useCrucigramaTeclado(
     letrasRef,
     enviando,
     encontradasIds,
-    idPorNumero,
+    pistas,
   } = deps;
   const { activarPalabra, validar, setLetras, setCeldaFoco } = callbacks;
 
@@ -160,8 +162,11 @@ export function useCrucigramaTeclado(
     for (let paso = 1; paso <= palabras.length; paso++) {
       const idx = (indice + direccion * paso + palabras.length) % palabras.length;
       const palabra = palabras[idx];
-      const id = idPorNumero.get(palabra.numero);
-      if (!id || !encontradasIds.has(id)) {
+      // Resolución por palabra (c-21): pendiente => jugable; resuelta y
+      // encontrada => salta. Sin candidatos => jugable (defensivo).
+      const ids = idsCandidatos(pistas, palabra);
+      const encontrada = ids.some((id) => encontradasIds.has(id));
+      if (!encontrada) {
         activarPalabra(palabra);
         return;
       }

@@ -5,6 +5,10 @@
  * que devuelve el GET /estado, SIN tocar red ni BD. Todo es determinista y
  * testeable con vitest, igual que `editor/logica.ts` (C-09).
  *
+ * MECÁNICA DE JUEGO (tablero, celdas, entrada, borrado, encontradas). La
+ * RESOLUCIÓN DE PISTAS (puente numero→id, caché, explicaciones) vive en
+ * `pistas.ts` (c-21): separada por responsabilidad — regla dura 8.
+ *
  * Responsabilidades que NO le tocan a este módulo (viven en el componente):
  * - persistir el progreso del invitado (localStorage),
  * - llamar `responderPalabra` al backend,
@@ -16,6 +20,7 @@ import type {
   OrientacionCrucigrama,
   PalabraGrilla,
 } from "../../types";
+import { clavePista, type ClavePista } from "./pistas";
 
 export interface CeldaTablero {
   fila: number;
@@ -224,16 +229,18 @@ export function siguienteCeldaVacia(
   return null;
 }
 
-/** Celdas "fila,col" a pintar como encontradas, dadas las pistas (numeros)
- * encontradas. Las palabras de la grilla D6 se identifican por numero (el
- * backend no expone su id, pero `EstadoPalabra.numero` las vincula — D3). */
+/** Celdas "fila,col" a pintar como encontradas, dadas las CLAVES por palabra
+ *  (c-21, D4): `Set<ClavePista>` en vez del viejo `Set<number>` de numeros.
+ *  Con `Set<number>` un par colisionante H+V (mismo inicio, mismo numero) se
+ *  pintaba COMPLETO apenas una de las dos palabras se encontraba; por clave se
+ *  pinta SOLO la palabra encontrada (desviación documentada del design D2). */
 export function celdasDeEncontradas(
   palabrasGrilla: PalabraGrilla[],
-  numerosEncontrados: Set<number>,
+  clavesEncontradas: Set<ClavePista>,
 ): Set<string> {
   const celdas = new Set<string>();
   for (const w of palabrasGrilla) {
-    if (!numerosEncontrados.has(w.numero)) continue;
+    if (!clavesEncontradas.has(clavePista(w.numero, w.orientacion))) continue;
     for (const { fila, columna } of celdasDePalabraGrilla(w)) {
       celdas.add(claveCelda(fila, columna));
     }
