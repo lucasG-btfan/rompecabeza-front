@@ -10,7 +10,9 @@ interface CarruselProps {
 }
 
 /** Carrusel del lobby (C-17, D11/D12): presenta la tarjeta activa + flechas
- *  con wrap-around (lógica pura en `utils/carrusel.ts`). Presentacional. */
+ *  con wrap-around (lógica pura en `utils/carrusel.ts`). Presentacional.
+ *  C-23 (D6): badge "en duelo" si `en_duelo` (duelo formado); badge tenue
+ *  "esperando rival" si `en_espera` (hay un rival esperando para matchear). */
 export default function Carrusel({
   partidas,
   indice,
@@ -43,11 +45,18 @@ export default function Carrusel({
         >
           <div className="flex items-center justify-between gap-3">
             <span className="font-display text-xl">{titulo}</span>
-            {partida.en_duelo && (
-              <span className="rounded-full bg-amber px-2 py-0.5 text-xs font-semibold text-ink">
-                en duelo
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {partida.en_duelo && (
+                <span className="rounded-full bg-amber px-2 py-0.5 text-xs font-semibold text-ink">
+                  en duelo
+                </span>
+              )}
+              {partida.en_espera && !partida.en_duelo && (
+                <span className="rounded-full border border-line bg-tile-light px-2 py-0.5 text-xs font-semibold text-ink-soft">
+                  esperando rival
+                </span>
+              )}
+            </div>
           </div>
           <p className="mt-2 text-sm text-ink-soft">
             {etiquetaTipo(partida.tipo)} · {partida.cantidad_palabras}{" "}

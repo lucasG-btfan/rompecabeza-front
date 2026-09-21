@@ -318,3 +318,22 @@ export function indiceTrasBorrado(
   }
   return { indiceBorrado: indice - 1, nuevoFoco: indice - 1 };
 }
+
+/**
+ * Borra la letra de la celda `celda` del mapa de letras del jugador (C-24).
+ *
+ * INVARIANTE del espejo (C-24 D2): `letrasRef.current` SIEMPRE = último mapa
+ * mutado. Esta función es la ÚNICA vía de borrar una letra del espejo/estado:
+ * copia + `delete` de la clave (inmutable — el mapa original no se toca).
+ * El caller DEBE asignar el ref con el resultado en el MISMO tick; sin eso,
+ * la escritura posterior (`manejarCambio`) copia un espejo stale y reinserta
+ * letras viejas (bug 'letras fantasma', C-24).
+ */
+export function borrarLetra(
+  letras: ReadonlyMap<string, string>,
+  celda: { fila: number; columna: number },
+): Map<string, string> {
+  const m = new Map(letras);
+  m.delete(claveCelda(celda.fila, celda.columna));
+  return m;
+}

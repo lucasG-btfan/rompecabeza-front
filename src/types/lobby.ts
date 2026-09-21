@@ -13,8 +13,12 @@ export interface PartidaLobby {
   cantidad_palabras: number;
   /** C-15: nombre opcional asignado por el creador (null = sin nombre). */
   nombre?: string | null;
-  /** True si la partida tiene una espera o duelo 1v1 activo. */
+  /** C-17: true si la partida tiene un duelo 1v1 FORMADO (`emparejado`).
+   *  C-23 (D1): una espera de rival ya NO marca `en_duelo`. */
   en_duelo: boolean;
+  /** C-23 (D4): true si hay una espera de rival pendiente (`esperando`).
+   *  Aditivo — default false = partida libre. */
+  en_espera: boolean;
 }
 
 /** Estados posibles de un emparejamiento 1v1 (union type — no enum: el

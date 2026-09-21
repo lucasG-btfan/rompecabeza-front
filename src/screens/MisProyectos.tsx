@@ -162,6 +162,11 @@ export function MisProyectos() {
                       en duelo
                     </span>
                   )}
+                  {p.en_espera && !p.en_duelo && (
+                    <span className="rounded-full border border-line bg-tile-light px-3 py-1 text-xs font-semibold text-ink-soft" title="Alguien está esperando rival para esta partida">
+                      esperando rival
+                    </span>
+                  )}
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${clase}`}>
                     {texto}
                   </span>

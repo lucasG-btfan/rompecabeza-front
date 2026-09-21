@@ -161,8 +161,12 @@ export interface ResumenPartida {
   palabras_encontradas: number;
   /** C-15: nombre opcional asignado por el creador (null = sin nombre). */
   nombre?: string | null;
-  /** C-17 (D10): la partida tiene un duelo 1v1 activo (badge en MisProyectos). */
+  /** C-17 (D10): la partida tiene un duelo 1v1 (C-23 D1: SOLO si está formado
+   *  — `emparejado`). Badge en MisProyectos. */
   en_duelo: boolean;
+  /** C-23 (D4): la partida tiene una espera de rival pendiente (`esperando`).
+   *  Aditivo — badge "esperando rival" en MisProyectos. */
+  en_espera: boolean;
 }
 
 /** Palabra con su estado en el juego (EstadoPalabraResponse). */

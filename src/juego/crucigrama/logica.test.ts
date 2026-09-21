@@ -28,6 +28,7 @@ import type {
 } from "../../types";
 import {
   armarTablero,
+  borrarLetra,
   celdaAdyacente,
   celdasDeEncontradas,
   celdasDePalabraGrilla,
@@ -37,6 +38,9 @@ import {
   respuestaDePalabra,
   siguienteCeldaVacia,
 } from "./logica";
+// C-24: `claveCelda` (plantilla canónica "fila,columna" de los Maps del juego)
+// se importa del hook que la exporta — `logica.ts` la tiene privada.
+import { claveCelda } from "./useCrucigramaTeclado";
 // Fix c-21 (D3 con escape de regla dura 8): la resolución de pistas vive en
 // `pistas.ts` (split por responsabilidad — `logica.ts` quedaba en ~585 líneas,
 // reventando el tope de 400). Los miembros c-21 se importan de ahí.
@@ -874,5 +878,193 @@ describe("escenario PO QKL3K7 (c-21)", () => {
     ]);
     expect(encontradas).toEqual(new Set(["id-h9", "id-v9"]));
     expect(encontradas.size).toBe(2);
+  });
+});
+
+/**
+ * C-24 — fix letras fantasma: `borrarLetra` y la secuencia del PO.
+ *
+ * Bug: `manejarBorrado` (useCrucigramaTeclado.ts) actualizaba el estado React
+ * con un updater que NUNCA sincronizaba `letrasRef.current` (el espejo). Al
+ * escribir después, `manejarCambio` copiaba el espejo STALE (con las letras
+ * borradas) y las reinsertaba en el estado.
+ *
+ * Fix (D1/D5): función pura `borrarLetra` = fuente ÚNICA de la mutación de
+ * borrado + el hook sincroniza el ref en el mismo tick (patrón manejarCambio).
+ * Este describe modela el flujo del hook con las funciones puras del módulo
+ * (harness), exactamente como los consume `useCrucigramaTeclado`.
+ *
+ * Los tests de secuencia documentan la invariante del espejo (D2): si alguien
+ * rompe la sync, el harness con `borrarLetra` + ref = m deja de modelar el
+ * flujo real y los asserts de letras fantasma son la red de contención.
+ */
+
+/** Harness del flujo del hook con funciones puras (mismo contrato que
+ *  `manejarCambio:230-233` — ref → copia → set → ref = m). */
+function armarHarnessC24() {
+  let ref = new Map<string, string>();
+  return {
+    ref: () => ref,
+    escribir(celda: { fila: number; columna: number }, letra: string): void {
+      const m = new Map(ref);
+      m.set(claveCelda(celda.fila, celda.columna), letra);
+      ref = m;
+    },
+    borrar(celda: { fila: number; columna: number }): void {
+      ref = borrarLetra(ref, celda);
+    },
+  };
+}
+
+describe("borrarLetra (C-24)", () => {
+  it("devuelve un mapa NUEVO sin la clave 'fila,columna' de la celda pedida", () => {
+    const original = new Map([
+      ["0,1", "A"],
+      ["2,3", "H"],
+    ]);
+
+    const resultado = borrarLetra(original, { fila: 0, columna: 1 });
+
+    expect(resultado.has("0,1")).toBe(false);
+    expect(resultado.get("2,3")).toBe("H"); // el resto se conserva
+    expect(resultado.size).toBe(1);
+  });
+
+  it("NO muta el mapa original (inmutabilidad — copia, no referencia)", () => {
+    const original = new Map([
+      ["0,1", "A"],
+      ["2,3", "H"],
+    ]);
+
+    borrarLetra(original, { fila: 0, columna: 1 });
+
+    expect(original.has("0,1")).toBe(true); // el original sigue teniendo la clave
+    expect(original.size).toBe(2);
+  });
+
+  it("con clave inexistente es idempotente: mapa igual, sin error", () => {
+    const original = new Map([
+      ["0,1", "A"],
+      ["2,3", "H"],
+    ]);
+
+    const resultado = borrarLetra(original, { fila: 5, columna: 5 });
+
+    expect(resultado.size).toBe(2);
+    expect(resultado.get("0,1")).toBe("A");
+    expect(resultado.get("2,3")).toBe("H");
+  });
+
+  it("secuencia del PO (a): 'haio' → borrar TODO → reescribir 'hola' produce 'hola', la 'O' vieja NUNCA reaparece", () => {
+    // PATO H (0,0)-(0,3): la última celda (0,3) es el cruce con ORO V (inicio
+    // de 'holla') — la geometría exacta del reporte del PO.
+    const celdas = celdasDePalabraGrilla(palabraPato());
+    const harness = armarHarnessC24();
+
+    // Tipear 'haio' sobre la palabra H de 4 celdas.
+    ["h", "a", "i", "o"].forEach((letra, i) => harness.escribir(celdas[i], letra));
+    expect(respuestaDePalabra(palabraPato(), harness.ref())).toBe("haio");
+
+    // Borrar TODO con la semántica de Backspace (`indiceTrasBorrado` por celda,
+    // desde el final retrocediendo) — el flujo real del hook con el espejo
+    // sincronizado en cada borrado.
+    let foco = celdas.length - 1;
+    while (foco >= 0) {
+      const teniaLetra = harness.ref().has(claveCelda(celdas[foco].fila, celdas[foco].columna));
+      const { indiceBorrado, nuevoFoco } = indiceTrasBorrado(
+        foco,
+        teniaLetra,
+        celdas.length,
+      );
+      if (indiceBorrado === null) break;
+      harness.borrar(celdas[indiceBorrado]);
+      foco = nuevoFoco;
+    }
+    expect(harness.ref().size).toBe(0); // el espejo quedó vacío: nada que reinsertar
+
+    // Reescribir 'hola' desde el inicio.
+    ["h", "o", "l", "a"].forEach((letra, i) => harness.escribir(celdas[i], letra));
+
+    // Resultado final: exactamente 'hola' celda a celda.
+    const esperado = ["h", "o", "l", "a"];
+    celdas.forEach((celda, i) => {
+      expect(harness.ref().get(claveCelda(celda.fila, celda.columna))).toBe(esperado[i]);
+    });
+    // La 'O' vieja de 'haio' NUNCA reaparece en la última celda ('holla' es
+    // imposible — documenta que el ref no reinserta letras stale).
+    expect(harness.ref().get(claveCelda(0, 3))).toBe("a");
+  });
+
+  it("secuencia del PO (b): borrar UNA letra del cruce H/V mientras se llena la H → desaparece para AMBAS orientaciones", () => {
+    // Layout PATO/ORO/AS: PATO H (0,0)-(0,3) y ORO V (0,3),(1,3),(2,3)
+    // comparten la celda (0,3) con clave GLOBAL "0,3" (mapa por celda, no por
+    // palabra — spec C-24).
+    const h = palabraPato();
+    const v = grillaPato().palabras[2]; // ORO V, inicia en (0,3)
+    const cruce = celdasDePalabraGrilla(v)[0]; // (0,3)
+    const harness = armarHarnessC24();
+
+    // Escribir la letra del cruce desde la V (parte de su palabra).
+    harness.escribir(cruce, "h");
+    expect(harness.ref().get(claveCelda(0, 3))).toBe("h");
+
+    // Borrar ESA celda mientras la H (PATO) está activa: el backspace se
+    // resuelve contra las celdas de la H (índice 3 = (0,3), la misma clave).
+    const celdasH = celdasDePalabraGrilla(h);
+    const indiceH = celdasH.findIndex(
+      (c) => c.fila === cruce.fila && c.columna === cruce.columna,
+    );
+    const teniaLetra = harness.ref().has(claveCelda(cruce.fila, cruce.columna));
+    const { indiceBorrado } = indiceTrasBorrado(indiceH, teniaLetra, celdasH.length);
+    if (indiceBorrado === null) {
+      throw new Error("harness C-24: el backspace sobre el cruce debía borrar una celda");
+    }
+    expect(indiceBorrado).toBe(3); // el cruce es la última celda de la H (0,3)
+    harness.borrar(celdasH[indiceBorrado]);
+
+    // La clave del cruce desapareció del espejo para AMBAS orientaciones.
+    expect(harness.ref().has(claveCelda(0, 3))).toBe(false);
+    expect(harness.ref().size).toBe(0);
+
+    // Reescribir el cruce: solo queda la letra nueva (la vieja no reaparece).
+    harness.escribir({ fila: 0, columna: 3 }, "a");
+    expect(harness.ref().get(claveCelda(0, 3))).toBe("a");
+    expect(harness.ref().size).toBe(1);
+  });
+
+  it("inmutabilidad explícita: mapa devuelto es instancia distinta y mutarlo NO afecta al original", () => {
+    const original = new Map([
+      ["0,1", "A"],
+      ["2,3", "H"],
+    ]);
+
+    const resultado = borrarLetra(original, { fila: 0, columna: 1 });
+
+    expect(resultado).not.toBe(original);
+    resultado.set("9,9", "X"); // mutar el devuelto...
+    expect(original.has("9,9")).toBe(false); // ...no toca al original
+    expect(original.has("0,1")).toBe(true); // ni restaura la clave borrada
+  });
+
+  it("borde: backspace en celda VACÍA de la palabra activa borra la ANTERIOR ('indiceTrasBorrado' + 'borrarLetra')", () => {
+    // Palabra con un hueco en el medio: letras en 0,1,2 y la celda 3 vacía
+    // (el flujo real de un backspace sobre un hueco en medio de la palabra).
+    const celdas = celdasDePalabraGrilla(palabraPato());
+    const harness = armarHarnessC24();
+    ["h", "o", "l"].forEach((letra, i) => harness.escribir(celdas[i], letra));
+    expect(harness.ref().has(claveCelda(0, 3))).toBe(false); // la última está vacía
+
+    const teniaLetra = harness.ref().has(claveCelda(0, 3));
+    const { indiceBorrado } = indiceTrasBorrado(3, teniaLetra, celdas.length);
+
+    // Indice 3 vacía → retrocede UNA celda (2) y borra la letra que haya allí.
+    if (indiceBorrado === null) {
+      throw new Error("harness C-24: el backspace sobre hueco debía borrar la celda anterior");
+    }
+    expect(indiceBorrado).toBe(2);
+    harness.borrar(celdas[indiceBorrado]);
+    expect(harness.ref().has(claveCelda(0, 2))).toBe(false); // se borró la 'l'
+    expect(harness.ref().get(claveCelda(0, 1))).toBe("o"); // el resto intacto
+    expect(harness.ref().size).toBe(2);
   });
 });

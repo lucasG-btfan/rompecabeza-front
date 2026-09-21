@@ -5,6 +5,7 @@ import type {
   PalabraGrilla,
 } from "../../types";
 import {
+  borrarLetra,
   celdaAdyacente,
   celdasDePalabraGrilla,
   indiceTrasBorrado,
@@ -95,11 +96,14 @@ export function useCrucigramaTeclado(
     const { indiceBorrado, nuevoFoco } = indiceTrasBorrado(indice, teniaLetra, celdas.length);
     if (indiceBorrado === null) return; // inicio de la palabra o índice inválido: nada
     const celdaBorrada = celdas[indiceBorrado];
-    setLetras((prev) => {
-      const m = new Map(prev);
-      m.delete(claveCelda(celdaBorrada.fila, celdaBorrada.columna));
-      return m;
-    });
+    // C-24 (invariante del espejo, D2/D5): TODO borrado debe sincronizar
+    // `letrasRef.current` en el MISMO tick — sin esto, `manejarCambio` copia
+    // un espejo stale y reinserta letras viejas (bug 'letras fantasma').
+    // `borrarLetra` es la única vía de borrado (lógica pura testeada en
+    // logica.test.ts); el flujo es el mismo que `manejarCambio` (230-233).
+    const m = borrarLetra(letrasRef.current, celdaBorrada);
+    letrasRef.current = m;
+    setLetras(m);
     setCeldaFoco(celdas[nuevoFoco]);
   }
 

@@ -73,6 +73,15 @@ export function Lobby() {
     void espera.crearEmparejamiento(codigo);
   }
 
+  // C-23 (D5, fix causa c): al volver al carrusel se RE-EJECUTA el fetch del
+  // listado — una espera cancelada/vencida libera la partida y la UI no queda
+  // congelada con flags viejos ("en duelo"). El hook no conoce el fetch:
+  // resetear() + cargarPartidas() se orquestan acá (sin acoplar hook→screen).
+  function volverAlCarrusel() {
+    espera.resetear();
+    void cargarPartidas();
+  }
+
   // Estados del flujo 1v1: reemplazan el carrusel mientras duran.
   if (espera.estado !== "idle") {
     return (
@@ -139,7 +148,7 @@ export function Lobby() {
                 </button>
                 <button
                   type="button"
-                  onClick={espera.resetear}
+                  onClick={volverAlCarrusel}
                   className="rounded-md border-2 border-ink/10 bg-tile-light px-5 py-2 font-semibold text-ink transition-colors hover:border-amber"
                 >
                   Volver al carrusel
