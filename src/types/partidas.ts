@@ -240,11 +240,17 @@ export interface UnirseOutput {
 /** Resultado del duelo 1v1 (C-19, DueloResultadoResponse) — espejo del
  * backend, normalizado por requester: `yo_palabras`/`rival_palabras` son
  * relativos a quien consulta; `gane` es true/false para él o null si el duelo
- * terminó en empate. `tiempo_total_seg` = iniciado_en → finalizado_en. */
+ * terminó en empate. `tiempo_total_seg` = iniciado_en → finalizado_en.
+ * `motivo` (C-25, requerido — D4) explica el POR QUÉ: `corte` (ganó quien
+ * completó el total), `abandono` (forfeit del rival — puede ganar con MENOS
+ * palabras, RN-EM-07) o `empate`. El copy abre por `(gane, motivo)`. */
 export interface ResultadoDuelo {
   yo_palabras: number;
   rival_palabras: number;
   gane: boolean | null;
+  /** Por qué terminó el duelo: quien completó su contador (`corte`), el
+   * rival abandonó (forfeit, `abandono`) o empate teórico. */
+  motivo: "corte" | "abandono" | "empate";
   /** Username del otro jugador del duelo. */
   rival: string | null;
   tiempo_total_seg: number;
