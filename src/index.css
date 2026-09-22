@@ -15,9 +15,6 @@
   }
 }
 
-/* Accesibilidad (C-12/D4): sin animaciones para quienes prefieren movimiento
-   reducido (vértigo/vestibular). El contenido queda intacto; se apaga solo el
-   movimiento decorativo del juego. */
 @media (prefers-reduced-motion: reduce) {
   .animate-tile-drop,
   .animate-found,

@@ -3,20 +3,6 @@ import { Tablero } from "../compartido/Tablero";
 import { CeldaJuego } from "./CeldaJuego";
 import type { CeldaTablero } from "./logica";
 
-/**
- * Grilla de celdas del crucigrama JUGABLE (C-10, D6; C-12, D4/D5): transforma
- * la matriz del tablero (`celdasDePalabraGrilla`/`armarTablero` de `logica.ts`)
- * en celdas unitarias `<CeldaJuego/>` dentro de la geometría compartida
- * `<Tablero/>` (la misma que usa la sopa).
- *
- * Presentacional con DOS responsabilidades de UI (C-12):
- * - scroll a la celda activa cuando cambia `celdaFoco` (teclado virtual
- *   mobile tapa la grilla, D5);
- * - clase `animate-found` en las celdas de la palabra recién encontrada
- *   (`palabraResaltada` resuelta a claves por el container, D4).
- *
- * Sin estado de juego: la mecánica vive en `useCrucigramaJuego`.
- */
 
 interface TableroCrucigramaProps {
   tablero: CeldaTablero[][];
@@ -25,7 +11,6 @@ interface TableroCrucigramaProps {
   celdasEncontradas: Set<string>;
   celdasError: Set<string>;
   celdaFoco: { fila: number; columna: number } | null;
-  /** Claves "fila,columna" de la palabra resaltada (C-12/D4, highlight). */
   celdasResaltadas: ReadonlySet<string>;
   onCeldaClick: (fila: number, columna: number) => void;
   onCambio: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -51,9 +36,6 @@ export function TableroCrucigrama({
   const filas = tablero.length;
   const columnas = tablero[0]?.length ?? 0;
 
-  // Scroll a la celda activa (C-12/D5): al cambiar el foco (click, flechas o
-  // auto-advance) la celda se centra en el viewport — sin esto el teclado
-  // virtual mobile tapa la fila que se está escribiendo.
   useEffect(() => {
     if (!celdaFoco) return;
     document

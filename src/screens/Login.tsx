@@ -14,8 +14,6 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [cargando, setCargando] = useState(false);
 
-  // Si vino de una ruta protegida (ProtectedRoute manda el state.from),
-  // después de loguearse vuelve ahí; si no, a la home.
   const destino = (location.state as { from?: string } | null)?.from ?? "/";
 
   async function manejarSubmit(e: FormEvent) {
@@ -25,7 +23,6 @@ export function Login() {
       await login(username, password);
       navigate(destino, { replace: true });
     } catch {
-      // El error ya queda reflejado en el store; no hace falta hacer nada más acá.
     } finally {
       setCargando(false);
     }

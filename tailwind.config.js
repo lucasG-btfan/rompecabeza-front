@@ -27,20 +27,15 @@ export default {
           '60%': { transform: 'translateY(8px) rotate(2deg)', opacity: '1' },
           '100%': { transform: 'translateY(0) rotate(0deg)', opacity: '1' },
         },
-        // C-12/D4: highlight de la palabra recién encontrada en el crucigrama
-        // (pulso ámbar + escala; `both` deja la celda en su estado natural).
         'found-flash': {
           '0%': { transform: 'scale(1)', backgroundColor: 'rgba(200, 173, 127, 0)' },
           '40%': { transform: 'scale(1.12)', backgroundColor: 'rgba(200, 173, 127, 0.45)' },
           '100%': { transform: 'scale(1)', backgroundColor: 'rgba(200, 173, 127, 0)' },
         },
-        // C-12/D4: celebración del banner de victoria (fade + scale-up).
         'win-pop': {
           '0%': { opacity: '0', transform: 'scale(0.9)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
-        // Hover del botón dorado del Home: primero se aclara y luego sube a
-        // mayor intensidad (C-17, card "Jugá con otros" → lobby).
         'dorado-hover': {
           '0%': { backgroundColor: '#EBD9B4' },
           '100%': { backgroundColor: '#B1883F' },

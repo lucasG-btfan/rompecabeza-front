@@ -1,8 +1,5 @@
 import { useState } from "react";
 
-/**
- * Muestra el código de una partida recién creada, con botón para copiarlo.
- */
 export function CodigoGenerado({ codigo }: { codigo: string }) {
   const [copiado, setCopiado] = useState(false);
 
@@ -12,7 +9,6 @@ export function CodigoGenerado({ codigo }: { codigo: string }) {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      // Clipboard puede no estar disponible (permisos); no bloqueamos nada.
     }
   }
 

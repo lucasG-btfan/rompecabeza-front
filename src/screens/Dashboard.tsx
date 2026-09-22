@@ -29,9 +29,6 @@ export function Dashboard() {
     e.preventDefault();
     setError(null);
 
-    // C-16 D4: convierte filas (palabra + pista) a PalabraInput[] según tipo.
-    // R1 (sopa): nunca manda `explicacion`; R2 (crucigrama): la manda solo si
-    // la pista no quedó vacía tras trim.
     const palabras = filasAPalabras(filas, tipo);
 
     if (palabras.length === 0) {

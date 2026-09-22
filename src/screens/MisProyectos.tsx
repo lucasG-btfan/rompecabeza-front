@@ -21,11 +21,9 @@ export function MisProyectos() {
   const [editandoCodigo, setEditandoCodigo] = useState<string | null>(null);
   const [textoNombre, setTextoNombre] = useState("");
   const [errorRenombrar, setErrorRenombrar] = useState<string | null>(null);
-  // Guard para no disparar doble PATCH (Enter → blur) ni PATCH al cancelar con Escape
   const blurEnCurso = useRef(false);
 
   async function _guardarNombre(codigo: string, nombre: string | null) {
-    // optimista: capturar anterior para revertir
     const anterior = partidas?.find((p) => p.codigo === codigo)?.nombre ?? null;
     setPartidas(
       (ps) =>

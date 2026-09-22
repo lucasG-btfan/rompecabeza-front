@@ -2,22 +2,13 @@ import type { TipoPartida } from "../types";
 import type { FilaPalabra } from "../utils/filasPalabras";
 
 interface Props {
-  /** Filas editable del form (cada una = palabra + pista opcional). */
   filas: FilaPalabra[];
-  /** "sopa" = solo input de palabra; "crucigrama" = palabra + pista (R2). */
   tipo: TipoPartida;
-  /** Aplica un cambio parcial en una fila (delegar en `actualizarFila`). */
   onCambiarFila: (indice: number, cambio: Partial<FilaPalabra>) => void;
-  /** Agrega una fila vacía al final (delegar en `agregarFila`). */
   onAgregarFila: () => void;
-  /** Quita la fila del índice (delegar en `quitarFila`). */
   onQuitarFila: (indice: number) => void;
 }
 
-/** Form de filas palabra/pista para crear/editar partidas (C-16, D4). Presentacional:
- *  sin estado propio ni lógica — todo llega por props y se delega a `filasPalabras`.
- *  R1: no se puede quitar la única fila restante (X deshabilitado).
- *  R2: el input de pista solo aparece en crucigrama. */
 export function ListaPalabrasInput({
   filas,
   tipo,

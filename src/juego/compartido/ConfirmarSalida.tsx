@@ -1,23 +1,14 @@
 import { useEffect, useRef } from "react";
 
 interface ConfirmarSalidaProps {
-  /** Confirma la salida: limpia el progreso y continúa la navegación. */
+  
   onConfirmar: () => void;
-  /** Cancela la salida: la partida queda intacta. */
   onCancelar: () => void;
 }
-
-/**
- * Modal de confirmación para salir de una partida en curso (C-13, D3):
- * avisa que se pierde TODO el progreso. "Quedarme" y Escape cancelan;
- * "Salir" confirma la pérdida y continúa la navegación bloqueada.
- */
 export function ConfirmarSalida({ onConfirmar, onCancelar }: ConfirmarSalidaProps) {
   const botonQuedarmeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    // Foco inicial en la acción segura ("Quedarme"): si el usuario
-    // confirma con Enter sin mirar, no pierde el progreso.
     botonQuedarmeRef.current?.focus();
 
     function manejarTecla(e: KeyboardEvent) {

@@ -9,10 +9,6 @@ interface CarruselProps {
   onSeleccionar: (partida: PartidaLobby) => void;
 }
 
-/** Carrusel del lobby (C-17, D11/D12): presenta la tarjeta activa + flechas
- *  con wrap-around (lógica pura en `utils/carrusel.ts`). Presentacional.
- *  C-23 (D6): badge "en duelo" si `en_duelo` (duelo formado); badge tenue
- *  "esperando rival" si `en_espera` (hay un rival esperando para matchear). */
 export default function Carrusel({
   partidas,
   indice,

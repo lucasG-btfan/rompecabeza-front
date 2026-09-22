@@ -8,17 +8,6 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-/**
- * ErrorBoundary global (fix C-13): captura errores de render de TODO el árbol.
- * Sin esto, React 19 desmontaba la app completa ante cualquier throw de render
- * (página en blanco muda — el caso real de /jugar/:codigo con useBlocker).
- *
- * Va por FUERA de AuthProvider y del router (D2): no depende de ninguno de los
- * dos para renderizar su propia UI, así que un crash dentro del árbol del
- * router (p. ej. Jugar) se muestra igual. "Volver al inicio" recarga la app
- * completa (window.location.assign) para resetear estado de router y sesión;
- * "Reintentar" resetea el error y vuelve a renderizar el árbol.
- */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };
 
@@ -27,7 +16,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Dejamos el rastro completo en consola (React 19 además re-loga en dev).
     console.error("[ErrorBoundary]", error, info.componentStack);
   }
 

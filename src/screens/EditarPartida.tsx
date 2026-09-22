@@ -36,9 +36,6 @@ export function EditarPartida() {
 
   async function agregarPalabra(e: FormEvent) {
     e.preventDefault();
-    // Mandamos la palabra COMO LA ESCRIBIÓ el usuario (con espacios/guiones si
-    // los tiene): el backend genera la versión de grilla (palabra) y la legible
-    // (texto_mostrar) a partir de este texto original.
     const palabra = nuevaPalabra.trim();
     if (!palabra) return;
     const pista = nuevaPista.trim();
@@ -111,8 +108,6 @@ export function EditarPartida() {
     setCargandoAccion(true);
     setError(null);
     try {
-      // Sin pista se manda { palabra }: el backend setea explicacion=None y la
-      // quita (dejar el campo vacío al editar = borrar la pista).
       const actualizada = await partidasApi.editarPalabra(
         codigo,
         palabraId,
@@ -148,11 +143,6 @@ export function EditarPartida() {
     );
   }
 
-  // Gating por rol (C-12, D1 REVISADO): el editor es del creador. Quien no lo
-  // es (otro usuario autenticado o invitado con el código) no ve el editor —
-  // las soluciones del crucigrama viajan null en la vista pública y toda
-  // mutación exige cookie de creador (403). El backend setea `es_creador` por
-  // sesión; el creador autenticado pasa por acá sin cambios.
   if (!partida.es_creador) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 py-10">
@@ -350,10 +340,6 @@ export function EditarPartida() {
         yaFinalizada ? (
           cajaActiva
         ) : (
-          // key = ids de palabras: al agregar/editar/eliminar una palabra, el
-          // editor se remonta y recarga del backend (su estado local quedaba
-          // desincronizado: el contador "x de N posicionadas" y la lista
-          // quedaban viejos hasta refrescar la página).
           <EditorCrucigrama
             key={partida.palabras.map((p) => p.id).join(",")}
             codigo={codigo}

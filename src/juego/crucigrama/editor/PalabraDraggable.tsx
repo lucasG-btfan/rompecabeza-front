@@ -3,24 +3,16 @@ import type { OrientacionCrucigrama } from "../../../types";
 
 interface PalabraDraggableProps {
   palabraId: string;
-  /** Versión de grilla de la palabra (mayúsculas, sin espacios, la que se coloca). */
   texto: string;
-  /** Etiqueta de pista (texto_mostrar). */
   etiqueta: string | null;
   orientacion: OrientacionCrucigrama;
   posicionada: boolean;
   onToggleOrientacion: (palabraId: string) => void;
-  /** Callback propio con la orientación elegida al iniciar el arrastre. */
   onDragStart: (e: DragEvent<HTMLDivElement>, palabraId: string, orientacion: OrientacionCrucigrama) => void;
-  /** Quita la posición manual (C-11: solo visible si está posicionada). */
   onQuitar: (palabraId: string) => void;
 }
 
-/**
- * Chip arrastrable de palabra del editor (D6): al iniciar el arrastre setea
- * el `dataTransfer` y avisa al padre con la orientación vigente (H/V). El
- * toggle de orientación es un botón aparte para no interferir con el drag.
- */
+
 export function PalabraDraggable({
   palabraId,
   texto,

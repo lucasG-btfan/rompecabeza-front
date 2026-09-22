@@ -5,19 +5,6 @@ import {
   type PistasResueltas,
 } from "./pistas";
 
-/**
- * Panel de pistas del crucigrama JUGABLE (C-10, 6.4): pistas numeradas por
- * orientación (Horizontales / Verticales) con la explicacion pública de cada
- * palabra. Las encontradas se tachan y quedan deshabilitadas; el resto activa
- * la palabra al clickear vía `onActivarPalabra`.
- *
- * Componente SIN estado: recibe la grilla, las pistas resueltas (c-21 D2:
- * puente (numero, orientacion) -> id, en vez del viejo Map<number,string> que
- * pisaba una de las dos palabras de un par colisionante H+V con mismo inicio)
- * y los IDs encontrados (derivados en `useCrucigramaJuego`) y la partida
- * pública.
- */
-
 interface PanelPistasProps {
   grilla: GrillaCrucigrama;
   pistas: PistasResueltas;
@@ -40,8 +27,6 @@ export function PanelPistas({
     .filter((w) => w.orientacion === "V")
     .sort((a, b) => a.numero - b.numero);
 
-  /** ¿Esta palabra (H/V, no el número) ya está encontrada? Resolución por
-   *  palabra (R2.3): si hay candidatos y alguno está encontrado, es su id. */
   function encontradaDe(w: PalabraGrilla): boolean {
     return idsCandidatos(pistas, w).some((id) => encontradasIds.has(id));
   }
@@ -53,8 +38,6 @@ export function PanelPistas({
   const items = (lista: PalabraGrilla[]) =>
     lista.map((w) => {
       const encontrada = encontradaDe(w);
-      // Clave única (numero, orientacion): dos palabras pueden compartir el
-      // número (par colisionante H+V con el mismo inicio, pista QKL3K7).
       const key = `${w.numero}:${w.orientacion}`;
       return (
         <li key={key}>

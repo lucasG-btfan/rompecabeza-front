@@ -1,22 +1,8 @@
-/**
- * Lógica pura de la Sopa de Letras.
- *
- * Separada del componente para poder testearla sin renderizar nada.
- * Acá vive la "deducción de palabra": dado un par de celdas que el jugador
- * marcó (inicio → fin), averiguamos qué palabra de la lista corresponde,
- * leyendo las letras de la grilla y comparándolas contra cada palabra.
- */
-
 export interface Celda {
   fila: number;
   columna: number;
 }
 
-/**
- * Devuelve las celdas en línea recta (misma fila, misma columna o diagonal de
- * 45°) desde `inicio` hasta `fin`, ordenadas de inicio a fin.
- * Devuelve null si el segmento no es recto ni diagonal.
- */
 export function obtenerCeldasLineales(
   inicio: Celda,
   fin: Celda,
@@ -27,8 +13,6 @@ export function obtenerCeldasLineales(
   const difF = f2 - f1;
   const difC = c2 - c1;
 
-  // Recta, vertical o diagonal: una de las dos diferencias debe ser 0,
-  // o ambas iguales en valor absoluto (diagonal 45°).
   const esHorizontal = difF === 0;
   const esVertical = difC === 0;
   const esDiagonal =
@@ -47,10 +31,6 @@ export function obtenerCeldasLineales(
   return celdas;
 }
 
-/**
- * Lee las letras de la grilla a lo largo del segmento inicio→fin.
- * Devuelve null si alguna celda queda fuera de la grilla.
- */
 export function textoDeSeleccion(
   grilla: string[][],
   inicio: Celda,
@@ -81,12 +61,6 @@ export interface Deduccion {
   texto: string;
 }
 
-/**
- * Dado un mapa de palabras candidatas, la grilla y una selección (inicio→fin),
- * devuelve la palabra que coincide con la selección, en cualquiera de los dos
- * sentidos (la palabra puede estar escrita al revés). Devuelve null si la
- * selección no corresponde a ninguna palabra pendiente.
- */
 export function deducirPalabra(
   palabras: PalabraCandidata[],
   grilla: string[][],

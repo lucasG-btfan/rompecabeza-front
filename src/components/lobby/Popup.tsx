@@ -9,12 +9,6 @@ interface PopupProps {
   onJugar1v1: () => void;
 }
 
-/** Popup de acciones por tarjeta del lobby (C-17, D12): "Unirse por código"
- *  (solitario) y "Jugar 1v1" (matchmaking). Presentacional. El 1v1 queda
- *  deshabilitado si la partida ya tiene un duelo FORMADO (`en_duelo`) o si el
- *  visitante es invitado (el 1v1 es solo para registrados — decisión 1 del PO).
- *  C-23 (D6): con una espera ajena (`en_espera`) el 1v1 queda HABILITADO (se
- *  matchea contra el rival que espera) y se muestra el microcopy. */
 export default function Popup({
   partida,
   esInvitado,

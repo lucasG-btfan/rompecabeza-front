@@ -3,33 +3,21 @@ import { subtituloResultado, tituloResultado } from "../../utils/resultadoDuelo"
 import { formatearTiempo } from "../../utils/tiempo";
 
 interface ResultadoDueloProps {
-  /** Resultado normalizado para ESTE jugador (D5). */
   resultado: ResultadoDueloModelo;
-  /** Username del jugador local (marcador del "yo"). */
   username: string;
   tipo: TipoPartida;
-  /** Nombre/código de la partida (para el encabezado del card). */
   partida: { codigo: string; nombre?: string | null } | null;
-  onVolverInicio: () => void;
+  onJugarOtro: () => void;
+  onAbandonar: () => void;
 }
 
-/**
- * Pantalla de resultado del duelo 1v1 (C-19, D11 — presentacional).
- *
- * Variantes visuales del design D11: ganador festiva (bg-amber +
- * `animate-win-pop` + emojis en el título, ya en el copy), perdedor sobria
- * (bg-tile + border-line, sin animación) y empate neutral (bg-tile +
- * border-amber/40). El copy exacto viene de `resultadoDuelo.ts` (probado con
- * vitest); este componente solo lo ubica en la card con los marcadores
- * `{username} — {yo_palabras}` vs `{rival} — {rival_palabras}` y el footer de
- * tiempo total (formatearTiempo, util existente).
- */
 export function ResultadoDuelo({
   resultado,
   username,
   tipo,
   partida,
-  onVolverInicio,
+  onJugarOtro,
+  onAbandonar,
 }: ResultadoDueloProps) {
   const rival = resultado.rival ?? "—";
   const perdi = resultado.gane === false;
@@ -76,12 +64,20 @@ export function ResultadoDuelo({
         Tiempo total: {formatearTiempo(resultado.tiempo_total_seg)}
       </p>
 
-      <button
-        onClick={onVolverInicio}
-        className="mt-2 rounded-md bg-amber px-6 py-2.5 font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
-      >
-        Volver al inicio
-      </button>
+      <div className="mt-2 flex flex-wrap justify-center gap-3">
+        <button
+          onClick={onJugarOtro}
+          className="rounded-md bg-amber px-6 py-2.5 font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
+        >
+          Jugar otro juego
+        </button>
+        <button
+          onClick={onAbandonar}
+          className="rounded-md border border-line bg-tile px-6 py-2.5 font-semibold text-ink transition-transform hover:-translate-y-0.5"
+        >
+          Abandonar
+        </button>
+      </div>
     </div>
   );
 }

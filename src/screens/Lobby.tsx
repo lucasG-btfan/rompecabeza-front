@@ -8,16 +8,12 @@ import type { PartidaLobby } from "../types";
 import { mensajeError } from "../utils/errores";
 import { useEmparejamiento } from "../hooks/useEmparejamiento";
 
-/** Formatea segundos como mm:ss (reloj de espera del duelo). */
 function formatoReloj(segundos: number): string {
   const m = Math.floor(segundos / 60);
   const s = segundos % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/** Pantalla del lobby (C-17, D12): carrusel público de partidas activas +
- *  popup de acciones + flujo de matchmaking 1v1 (hook useEmparejamiento, D13).
- *  Acceso libre: los invitados navegan el lobby pero el 1v1 les pide login. */
 export function Lobby() {
   const navigate = useNavigate();
   const { modo } = useAuth();
@@ -58,8 +54,6 @@ export function Lobby() {
     void cargarPartidas();
   }, [cargarPartidas]);
 
-  // Al emparejarse, ambos jugadores van a la misma partida (C-14: progreso
-  // efímero — el punteo del duelo es del frontend).
   useEffect(() => {
     if (espera.estado === "emparejado" && espera.codigoPartida !== null) {
       navigate(`/jugar/${espera.codigoPartida}`);
@@ -73,16 +67,11 @@ export function Lobby() {
     void espera.crearEmparejamiento(codigo);
   }
 
-  // C-23 (D5, fix causa c): al volver al carrusel se RE-EJECUTA el fetch del
-  // listado — una espera cancelada/vencida libera la partida y la UI no queda
-  // congelada con flags viejos ("en duelo"). El hook no conoce el fetch:
-  // resetear() + cargarPartidas() se orquestan acá (sin acoplar hook→screen).
   function volverAlCarrusel() {
     espera.resetear();
     void cargarPartidas();
   }
 
-  // Estados del flujo 1v1: reemplazan el carrusel mientras duran.
   if (espera.estado !== "idle") {
     return (
       <div className="mx-auto flex max-w-xl flex-col gap-6">

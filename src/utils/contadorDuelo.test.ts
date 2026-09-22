@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { contadorAcotado, textoMarcadorDuelo } from "./contadorDuelo";
 
-// Contador visible del duelo 1v1 (AMEND CAMBIO 2): "[jugador1] n/m
-// [jugador2] n/m". Lógica PURA separada en util (patrón resultadoDuelo.ts);
-// el componente MarcadorDuelo solo pinta el texto.
-
 describe("textoMarcadorDuelo", () => {
   test("duelo emparejado: ambos jugadores con nombre y contador", () => {
     expect(
@@ -13,7 +9,7 @@ describe("textoMarcadorDuelo", () => {
         { nombre: "maria_88", contador: 5 },
         12,
       ),
-    ).toBe("[lucasss] 7/12 [maria_88] 5/12");
+    ).toBe("lucasss 7/12 maria_88 5/12");
   });
 
   test("rival todavía desconocido (esperando) → placeholder 'rival'", () => {
@@ -23,7 +19,7 @@ describe("textoMarcadorDuelo", () => {
         { nombre: null, contador: 0 },
         12,
       ),
-    ).toBe("[lucasss] 0/12 [rival] 0/12");
+    ).toBe("lucasss 0/12 rival 0/12");
   });
 
   test("contador que excede el total (glitch del corte) → acotado a m/m", () => {
@@ -33,7 +29,7 @@ describe("textoMarcadorDuelo", () => {
         { nombre: "maria_88", contador: 12 },
         12,
       ),
-    ).toBe("[lucasss] 12/12 [maria_88] 12/12");
+    ).toBe("lucasss 12/12 maria_88 12/12");
   });
 
   test("nombres con acentos y eñe (unicode)", () => {
@@ -43,7 +39,17 @@ describe("textoMarcadorDuelo", () => {
         { nombre: "lucasss", contador: 1 },
         4,
       ),
-    ).toBe("[Juán_Muñóz] 2/4 [lucasss] 1/4");
+    ).toBe("Juán_Muñóz 2/4 lucasss 1/4");
+  });
+
+  test("sin corchetes: ninguno de los dos nombres lleva [ ] (feedback PO)", () => {
+    const texto = textoMarcadorDuelo(
+      { nombre: "test1", contador: 1 },
+      { nombre: "test2", contador: 0 },
+      11,
+    );
+    expect(texto).not.toContain("[");
+    expect(texto).not.toContain("]");
   });
 });
 

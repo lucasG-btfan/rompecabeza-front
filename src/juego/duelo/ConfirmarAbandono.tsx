@@ -1,20 +1,11 @@
 import { useEffect, useRef } from "react";
 
 interface ConfirmarAbandonoProps {
-  /** Username del rival — el copy advierte que él gana la partida (D12). */
   rival: string | null;
-  /** Confirma el abandono (forfeit): se llama al backend desde el padre. */
   onConfirmar: () => void;
-  /** Cancela: el duelo sigue. */
   onCancelar: () => void;
 }
 
-/**
- * Modal de confirmación para ABANDONAR el duelo 1v1 (C-19, D12):
- * aviso claro de que el rival gana por forfait. Mismo patrón visual de
- * `ConfirmarSalida` (overlay oscuro + card), copy propio D12. El foco
- * inicial queda en "Seguir jugando" (la acción segura).
- */
 export function ConfirmarAbandono({ rival, onConfirmar, onCancelar }: ConfirmarAbandonoProps) {
   const seguirRef = useRef<HTMLButtonElement>(null);
 

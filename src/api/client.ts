@@ -1,7 +1,3 @@
-// Opción A (C-17 deploy): en producción la API se sirve por la MISMA origin
-// vía el rewrite /api/* de vercel.json → la cookie de sesión es first-party y
-// funciona aunque el navegador bloquee third-party cookies. En desarrollo
-// local seguimos apuntando al backend local (VITE_API_URL o fallback).
 const API_URL = import.meta.env.PROD ? "/api" : (import.meta.env.VITE_API_URL ?? "http://localhost:8000/api");
 
 export class ApiError extends Error {
@@ -17,8 +13,6 @@ export class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    // Manda y recibe la cookie de sesión httponly. Sin esto, el backend
-    // nunca ve la cookie y todo se trata como invitado/no-autenticado.
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -33,10 +27,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       if (typeof body?.detail === "string") {
         detail = body.detail;
       } else if (Array.isArray(body?.detail)) {
-        // Los 422 de FastAPI/Pydantic traen `detail` como ARRAY de errores
-        // ({loc, msg, type}). El statusText ("Unprocessable Content") no dice
-        // nada útil — formateamos el detalle real, ej: "fila: Input should be
-        // greater than or equal to 0".
         detail = body.detail
           .map(
             (e: { loc?: unknown[]; msg?: string }) =>
@@ -45,7 +35,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
           .join(" · ");
       }
     } catch {
-      // La respuesta no era JSON (poco común); usamos el statusText.
     }
     throw new ApiError(res.status, detail);
   }

@@ -7,16 +7,9 @@ import { botonFinalizarAuto, type Colocada } from "./logica";
 
 interface EditorCrucigramaProps {
   codigo: string;
-  /** Se invoca cuando finalizar parte: el padre refresca la partida. */
   onFinalizada?: () => void;
 }
 
-/**
- * Contenedor del editor manual de crucigrama (C-09). Fuente de verdad local:
- * GET /partidas/{codigo}/editor (posiciones SIEMPRE visibles, solo creador).
- * El alta de posición es PUT optimista (D7): si el servidor rechaza (400),
- * se restaura el snapshot previo y se muestra el error del backend.
- */
 export function EditorCrucigrama({ codigo, onFinalizada }: EditorCrucigramaProps) {
   const [palabras, setPalabras] = useState<EditorPalabra[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -65,9 +58,6 @@ export function EditorCrucigrama({ codigo, onFinalizada }: EditorCrucigramaProps
 
   const posicionadas = colocadas.length;
   const total = palabras.length;
-  // C-11 (defecto QA): con 0 posicionadas el backend genera la grilla
-  // automáticamente (todas o ninguna — parcial responde 400). Sin el camino
-  // automático el creador quedaba atrapado en "creando" para siempre.
   const mostrarFinalizarAuto = botonFinalizarAuto(posicionadas, total);
 
   function toggleOrientacion(palabraId: string) {
@@ -111,7 +101,6 @@ export function EditorCrucigrama({ codigo, onFinalizada }: EditorCrucigramaProps
         actual.map((p) => (p.id === palabraId ? actualizada : p)),
       );
     } catch (err) {
-      // Rollback (D7): el servidor es la autoridad; restauramos el snapshot.
       setPalabras(previo);
       setError(
         err instanceof Error
@@ -128,8 +117,6 @@ export function EditorCrucigrama({ codigo, onFinalizada }: EditorCrucigramaProps
     setCargandoAccion(true);
     setError(null);
     const previo = palabras;
-    // Optimista (D7): la palabra vuelve sin posición; si el servidor rechaza
-    // (400/403/404) se restaura el snapshot y se muestra el error del backend.
     setPalabras((actual) =>
       actual.map((p) => (p.id === palabraId ? { ...p, posicion: null } : p)),
     );

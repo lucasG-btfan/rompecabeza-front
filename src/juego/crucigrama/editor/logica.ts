@@ -1,22 +1,3 @@
-/**
- * Lógica pura del editor manual de crucigrama (C-09).
- *
- * Espejo deliberado (D7 REVISADO post-QA) de la validación del servidor:
- * - `validarPreview` traduce 1:1 `crucigrama_generator.py` (`cabe_palabra`,
- *   `check_fantasma`) y el orden de `validar_posicion` del editor, SIN
- *   conectividad obligatoria (opción C, D4 REVISADO). La AUTORIDAD final es
- *   el PUT (el backend re-valida); el preview solo anticipa el resultado.
- * - `anclarPalabra` implementa el snap (opción C, D7 REVISADO): genera TODOS
- *   los anclajes de cruce válidos (misma matemática que `_generar_candidatos`
- *   del generador con orientación fija), elige el más cercano al puntero y,
- *   si no existe ninguno, cae a colocación libre (primera letra en la celda
- *   del drop). Devuelve la posición completa `{fila, columna}`.
- * - NO descarta coordenadas negativas (D1 REVISADO): el PUT las acepta y
- *   `construir_grilla` traslada al bounding box mínimo al finalizar.
- * - `numerosDePista` replica `numerar_pistas` para la numeración provisional
- *   WYSIWYG (mismo barrido fila-major que persistirá `finalizar`).
- */
-
 export type Orientacion = "H" | "V";
 
 export interface CeldaEditor {
@@ -98,12 +79,6 @@ export interface ResultadoPreview {
   conflictos: ConflictoPreview[];
 }
 
-/**
- * Replica la díada REVISADA de `validar_posicion` del servidor (cabida de
- * cruce -> anti-fantasma; SIN conectividad obligatoria — opción C, D4
- * REVISADO). A diferencia del servidor (que lanza en el primer fallo),
- * acumula TODOS los conflictos para pintarlos en rojo.
- */
 export function validarPreview(
   colocadas: Colocada[],
   palabra: string,
@@ -173,24 +148,6 @@ export function validarPreview(
   return { valido: conflictos.length === 0, conflictos };
 }
 
-/**
- * Snap opción C (D7 REVISADO post-QA): genera TODOS los anclajes de cruce
- * válidos posibles de la palabra arrastrada (cada letra de una palabra
- * EXISTENTE PERPENDICULAR que coincida con una letra de la arrastrada, misma
- * matemática que `_generar_candidatos` del generador, con la orientación fija
- * del arrastre). Filtra con `validarPreview` y elige el anclaje cuya posición
- * esté MÁS CERCANA a la celda de drop (distancia Manhattan; empates resueltos
- * por el orden de generación, determinista).
- *
- * Si NO existe ningún anclaje de cruce válido, cae a COLOCACIÓN LIBRE (opción
- * C): la primera letra va en la celda de drop, validada con `validarPreview`
- * (anti-paralela + anti-fantasma siguen aplicando).
- *
- * Devuelve la posición completa `{fila, columna}` o null si NI el snap ni la
- * colocación libre son válidos (drop bloqueado). NO descarta coordenadas
- * negativas (D1 REVISADO): el PUT las acepta y `construir_grilla` traslada al
- * bounding box mínimo al finalizar.
- */
 export function anclarPalabra(
   colocadas: Colocada[],
   palabra: string,
@@ -232,20 +189,17 @@ export function anclarPalabra(
   }
   if (mejor) return mejor;
 
-  // (c) Fallback: colocación libre con la primera letra en la celda de drop.
   const libre = validarPreview(colocadas, palabra, fila, col, orientacion);
   return libre.valido ? { fila, columna: col } : null;
 }
 
 export interface GrillaNormalizada {
-  /** Coordenadas absolutas del borde superior-izquierdo del bounding box. */
   minFila: number;
   minCol: number;
   filas: number;
   columnas: number;
 }
 
-/** Bounding box mínimo de las palabras posicionadas (misma matemática que `construir_grilla`). */
 export function normalizarGrilla(colocadas: Colocada[]): GrillaNormalizada | null {
   if (colocadas.length === 0) return null;
   let minFila = Infinity;
@@ -263,12 +217,7 @@ export function normalizarGrilla(colocadas: Colocada[]): GrillaNormalizada | nul
   return { minFila, minCol, filas: maxFila - minFila + 1, columnas: maxCol - minCol + 1 };
 }
 
-/**
- * Numeración provisional 1..N en barrido fila-major sobre el canvas
- * NORMALIZADO (las celdas de inicio se numeran con la posición ya trasladada).
- * Espejo de `numerar_pistas` del servidor: la grilla que ve el creador muestra
- * los mismos números que persistirá `finalizar`.
- */
+
 export function numerosDePista(colocadas: Colocada[]): Map<string, number> {
   const bbox = normalizarGrilla(colocadas);
   const numeros = new Map<string, number>();
@@ -294,15 +243,6 @@ export function numerosDePista(colocadas: Colocada[]): Map<string, number> {
   return numeros;
 }
 
-/**
- * ¿El botón "Finalizar y generar grilla automáticamente" debe estar disponible?
- *
- * `finalizar` del servidor (C-09/C-11) aplica "todas o ninguna" sobre las
- * posiciones manuales: con CERO palabras posicionadas genera la grilla
- * automáticamente; con TODAS posicionadas usa el layout manual; con posiciones
- * parciales responde 400. La UI solo ofrece el camino automático cuando el
- * manual no aplica (nada posicionado) y el backend puede generar.
- */
 export function botonFinalizarAuto(posicionadas: number, total: number): boolean {
   return total > 0 && posicionadas === 0;
 }

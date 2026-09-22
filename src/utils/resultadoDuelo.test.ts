@@ -1,15 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { subtituloResultado, tituloResultado } from "./resultadoDuelo";
+import {
+  subtituloDueloExpirado,
+  subtituloResultado,
+  tituloDueloExpirado,
+  tituloResultado,
+} from "./resultadoDuelo";
 import type { ResultadoDuelo } from "../types/partidas";
 
-// Lógica pura del copy de la pantalla de resultado del duelo 1v1 (C-19, D11):
-// gane true → festivo 🥳🎉, gane false → sobrio, gane null (empate) → neutral.
-// El copy exacto vive en el design.md (D11/D13): NO cambiar sin cambiar el design.
-// C-25 (D5): el subtítulo abre por `(gane, motivo)` — corte mantiene el copy del
-// C-19 (honesto: el ganador por corte SIEMPRE tiene más palabras) y abandono
-// estrena copy propio (RN-EM-07: el ganador por forfeit puede tener MENOS).
-// D6: si `motivo` no viene (backend viejo en ventana de deploy) el copy se
-// deriva por comparación de palabras.
 
 type ParamsResultado = {
   yo_palabras?: number;
@@ -22,8 +19,6 @@ function resultado(
   rival = "lucasss",
   params: ParamsResultado = {},
 ): ResultadoDuelo {
-  // Cast informado: sin `motivo` en params el payload simula el backend VIEJO
-  // (sin el campo) — el caso D6 de la ventana de deploy.
   const payload = {
     yo_palabras: params.yo_palabras ?? 7,
     rival_palabras: params.rival_palabras ?? 5,
@@ -170,5 +165,29 @@ describe("subtituloResultado — fallback D6 sin motivo (ventana de deploy)", ()
     expect(
       subtituloResultado(resultado(false, "maria_88", { yo_palabras: 2, rival_palabras: 10 }), "maria_88"),
     ).toBe("maria_88 encontró más palabras que vos. La revancha es otra partida.");
+  });
+});
+
+describe("copy del terminal expirado (C-20, D5 — textos EXACTOS del design)", () => {
+  test("tituloDueloExpirado → 'El duelo expiró'", () => {
+    expect(tituloDueloExpirado()).toBe("El duelo expiró");
+  });
+
+  test("subtituloDueloExpirado → copy honesto del límite de una hora", () => {
+    expect(subtituloDueloExpirado()).toBe(
+      "El duelo superó el límite de una hora. La partida volvió al lobby.",
+    );
+  });
+
+  test("el copy NO menciona 'inactividad' ni 'Sin rival' (opción (b), D1/D5)", () => {
+    const sub = subtituloDueloExpirado();
+    // siendo honesto un duelo dura menos de 60 min, esta funcion es por si acaso
+    expect(sub).not.toContain("inactividad");
+    expect(sub).not.toContain("Sin rival");
+  });
+
+  test("determinismo: el copy es idéntico en llamadas repetidas", () => {
+    expect(tituloDueloExpirado()).toBe(tituloDueloExpirado());
+    expect(subtituloDueloExpirado()).toBe(subtituloDueloExpirado());
   });
 });

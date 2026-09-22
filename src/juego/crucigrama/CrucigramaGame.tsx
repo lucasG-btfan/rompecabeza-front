@@ -6,21 +6,10 @@ import { PanelPistas } from "./PanelPistas";
 import { celdasDePalabraGrilla } from "./logica";
 import { clavePista } from "./pistas";
 
-/**
- * Container delgado del modo crucigrama JUGABLE (C-10, D4).
- *
- * Recibe del padre (`Jugar.tsx`) los props de la partida y delega TODO el
- * estado y la mecánica a `useCrucigramaJuego`. La presentación se divide en
- * `TableroCrucigrama` (grilla de celdas) y `PanelPistas` (pistas numeradas).
- * Si el backend no devuelve crucigrama (`grilla` null), renderiza nada.
- */
-
 export interface CrucigramaGameProps {
   codigo: string;
   estado: EstadoPartida;
-  /** Vista pública de la partida: pistas (explicacion) numeradas. */
   partida?: Partida | null;
-  /** C-19 (D3/D5): segundo parámetro = `duelo_finalizado` si la jugada cortó. */
   onPalabraEncontrada?: (
     palabraId: string,
     dueloFinalizado?: ResultadoDuelo | null,
@@ -37,11 +26,6 @@ export function CrucigramaGame({
 }: CrucigramaGameProps) {
   const juego = useCrucigramaJuego({ codigo, estado, onPalabraEncontrada, onProgreso });
 
-  // Celdas de la palabra recién encontrada (C-12/D4): el hook expone la CLAVE
-  // (numero, orientacion) — c-21: en un par colisionante dos palabras
-  // comparten numero, así que la clave desambigua cuál resaltar; acá se
-  // resuelve a claves "fila,columna" con la geometría de la grilla (función
-  // pura, vitest) para que el tablero aplique `animate-found`.
   const celdasResaltadas = useMemo(() => {
     if (!juego.grilla || juego.palabraResaltada == null) return new Set<string>();
     const palabra = juego.grilla.palabras.find(

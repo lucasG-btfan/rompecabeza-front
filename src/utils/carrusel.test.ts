@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { siguienteIndice, anteriorIndice } from "./carrusel";
 
-// Lógica pura del carrusel del lobby (C-17, D11): navegación circular de
-// tarjetas. Invariante: `total <= 1` → siempre 0 (no hay nada que navegar).
-
 describe("siguienteIndice", () => {
   test("total 0 → siempre 0 (sin partidas)", () => {
     expect(siguienteIndice(0, 0)).toBe(0);

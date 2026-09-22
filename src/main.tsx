@@ -7,9 +7,6 @@ import { AuthProvider } from './store/auth'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {/* ErrorBoundary global por FUERA de AuthProvider y del router (D2): si el
-        crash ocurre dentro del árbol del router (p. ej. Jugar), el boundary lo
-        captura igual y muestra una pantalla navegable en vez de un blanco. */}
     <ErrorBoundary>
       <AuthProvider>
         <App />

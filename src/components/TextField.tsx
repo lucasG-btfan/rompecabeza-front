@@ -10,8 +10,6 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
   ({ label, error, id, type, ...props }, ref) => {
     const inputId = id ?? props.name;
     const esPassword = type === "password";
-    // Toggle mostrar/ocultar (UX-1): solo para inputs de contraseña.
-    // Default false = oculta (ojo cerrado gris, FaRegEyeSlash).
     const [mostrar, setMostrar] = useState(false);
 
     return (
@@ -31,8 +29,6 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             {...props}
           />
 
-          {/* Botón toggle solo para contraseñas: type="button" para NO enviar
-              el form; aria-pressed refleja el estado y aria-label lo describe. */}
           {esPassword && (
             <button
               type="button"

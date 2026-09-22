@@ -38,16 +38,7 @@ interface GrillaEditorProps {
   ) => void;
 }
 
-/**
- * Canvas de edición (D6/D7 REVISADO post-QA): normaliza el bounding box de
- * colocadas + preview, pinta celdas negras en vacíos, y durante un arrastre
- * calcula el snap opción C (`anclarPalabra`): el anclaje de cruce más cercano
- * al puntero que pase la validación espejo, o la colocación libre (primera
- * letra en la celda del drop) si no hay cruces. El drop envía SOLO posiciones
- * válidas; si ni el snap ni la libre valen, el drop queda bloqueado (no se
- * previene el dragOver). El bbox crece hacia arriba/izquierda porque el
- * preview puede usar coordenadas negativas (D1 REVISADO).
- */
+
 export function GrillaEditor({
   colocadas,
   palabraArrastrada,
@@ -85,8 +76,6 @@ export function GrillaEditor({
     return set;
   }, [preview]);
 
-  /** DragOver de una celda: calcula el snap (ancla de cruce más cercana o
-   * colocación libre) y muestra el preview; limpia si el drop queda bloqueado. */
   function manejarDragOver(e: DragEvent<HTMLDivElement>, absFila: number, absColumna: number) {
     if (!palabraArrastrada) return;
     const { palabra, orientacion } = palabraArrastrada;
@@ -103,9 +92,6 @@ export function GrillaEditor({
 
   function manejarDrop(e: DragEvent<HTMLDivElement>, _absFila: number, _absColumna: number) {
     e.preventDefault();
-    // D7 / QA paso 18: si el preview tiene conflictos (rojo) NO se envía el PUT
-    // — el servidor es la autoridad final y no debe recibir posiciones que el
-    // propio espejo ya marcó inválidas.
     if (!palabraArrastrada || !preview || preview.conflictos.length > 0) return;
     onColocarPalabra(palabraArrastrada.palabraId, preview.orientacion, preview.fila, preview.columna);
     setPreview(null);
@@ -152,7 +138,6 @@ export function GrillaEditor({
   }
 
   function renderCeldaSuelta(_fila: number, _columna: number) {
-    // Primer drop: una sola celda negra en (0,0) para anclar la primera palabra.
     return (
       <CeldaEditor
         estado="negra"
@@ -163,7 +148,6 @@ export function GrillaEditor({
   }
 
   if (!bbox) {
-    // Sin palabras posicionadas ni preview: zona de drop de la primera palabra.
     return (
       <div className="flex flex-col items-center gap-2">
         <Tablero filas={1} columnas={1} renderCelda={renderCeldaSuelta} />

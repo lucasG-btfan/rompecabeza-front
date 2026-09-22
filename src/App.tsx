@@ -17,18 +17,9 @@ import { Jugar } from "./screens/Jugar";
 import { Perfil } from "./screens/Perfil";
 import { Lobby } from "./screens/Lobby";
 
-// Data router (fix C-13): `useBlocker` (Jugar.tsx) exige un data router.
-// Con <BrowserRouter> declarativo NO existe DataRouterContext y el invariant
-// "useBlocker must be used within a data router" tiraba en cada render de
-// /jugar/:codigo → pantalla en blanco. Se conserva el árbol de rutas
-// idéntico con createRoutesFromElements (Layout/ProtectedRoute renderizan
-// <Outlet/> y son compatibles con rutas layout pathless). El router vive a
-// nivel de módulo para no recrearse en cada render del componente.
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
-      {/* Layout envuelve las rutas que comparten Header/navegación.
-          Las pantallas de auth (login/registro) van fuera para no mostrar header. */}
       <Route path="/login" element={<Login />} />
       <Route path="/registro" element={<Registro />} />
 
@@ -53,8 +44,6 @@ const router = createBrowserRouter(
 export default function App() {
   const { cargandoSesion } = useAuth();
 
-  // Mientras revisamos si la cookie de sesión sigue válida, no decidimos
-  // a dónde mandar a nadie (evita un parpadeo de "invitado" en rutas protegidas).
   if (cargandoSesion) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-fondo text-ink">
