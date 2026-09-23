@@ -52,7 +52,7 @@ export default function Popup({
             to={`/jugar/${partida.codigo}`}
             className="rounded-md bg-amber px-4 py-2.5 text-center font-semibold text-ink shadow-[3px_3px_0_0_rgba(36,28,21,0.35)] transition-transform hover:-translate-y-0.5"
           >
-            Unirse por código
+            jugar solitario 
           </Link>
 
           <button
